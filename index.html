@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Iron Tide: Shore Leave</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+  :root{
+    --bg-deep:#171423;
+    --panel:#241f38;
+    --panel-edge:#4a3f6b;
+    --gold:#e8c15e;
+    --teal:#5fd8c9;
+    --danger:#e0596b;
+    --success:#7bd66a;
+    --text:#e9e4f0;
+    --dim:#9a91b8;
+  }
+  *{box-sizing:border-box;image-rendering:pixelated;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-deep); font-family:'VT323', monospace; color:var(--text);
+    padding:20px;
+  }
+  .pixel{ font-family:'Press Start 2P', monospace; }
+
+  .game{
+    width:100%; max-width:720px; border:4px solid var(--panel-edge);
+    background:var(--panel); box-shadow:0 0 0 4px var(--bg-deep), 0 12px 30px rgba(0,0,0,.5);
+  }
+
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 14px; border-bottom:4px solid var(--panel-edge);
+    font-size:12px; letter-spacing:.5px;
+  }
+  .topbar .title{ color:var(--gold); }
+  .topbar .tracker{ color:var(--teal); font-size:10px; }
+  .topbar .linkbtn{
+    background:none; border:none; color:var(--dim); font-family:'Press Start 2P';
+    font-size:9px; cursor:pointer; text-decoration:underline;
+  }
+  .topbar .linkbtn:hover{ color:var(--gold); }
+
+  .scene-art{
+    position:relative; width:100%; aspect-ratio: 16/9;
+    background:repeating-linear-gradient(45deg,#2b2545,#2b2545 10px,#241f38 10px,#241f38 20px);
+    display:flex; align-items:center; justify-content:center;
+    border-bottom:4px solid var(--panel-edge);
+    overflow:hidden;
+  }
+  .scene-art img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .scene-art .placeholder-label{
+    font-family:'Press Start 2P'; font-size:9px; color:var(--dim); text-align:center; padding:0 20px;
+  }
+
+  .dialogue{
+    display:flex; gap:12px; padding:14px; border-bottom:4px solid var(--panel-edge);
+    min-height:110px;
+  }
+  .portrait{
+    position:relative;
+    flex:0 0 64px; width:64px; height:64px; border:3px solid var(--panel-edge);
+    background:#332b52; display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P'; font-size:8px; color:var(--dim); text-align:center;
+    overflow:visible;
+  }
+  .portrait img{ width:100%; height:100%; object-fit:cover; }
+  .portrait.player{ border-color:var(--teal); }
+  .portrait.npc{ border-color:var(--gold); }
+  .portrait.narrator{ border-color:var(--dim); }
+
+  .jail-badge{
+    position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+    width:20px; height:20px; border-radius:50%; background:var(--bg-deep);
+    border:2px solid var(--danger); display:flex; align-items:center; justify-content:center;
+    font-size:11px; line-height:1; z-index:3;
+  }
+  .jail-badge .jcount{
+    position:absolute; bottom:-6px; right:-6px; background:var(--danger); color:#2a0f14;
+    font-family:'Press Start 2P'; font-size:7px; border-radius:50%; width:13px; height:13px;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* --- procedural placeholder animation (no image files needed) --- */
+  .orc-demo{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#241f38; }
+  .orc-face{
+    width:70%; height:78%; background:#5c8a4a; border-radius:40% 40% 46% 46%;
+    position:relative; transform-origin:center bottom;
+    animation:orcBreathe 2.2s ease-in-out infinite;
+  }
+  .orc-nostril{
+    position:absolute; bottom:24%; width:6px; height:6px; background:#1f2a17; border-radius:50%;
+    animation:orcFlare 2.2s ease-in-out infinite;
+  }
+  .orc-nostril.left{ left:30%; }
+  .orc-nostril.right{ right:30%; }
+  @keyframes orcBreathe{ 0%,100%{ transform:scaleY(1); } 50%{ transform:scaleY(1.07); } }
+  @keyframes orcFlare{ 0%,38%,100%{ transform:scale(1); } 50%{ transform:scale(1.8); } }
+
+  .speech{ flex:1; }
+  .speaker-name{ font-family:'Press Start 2P'; font-size:11px; margin-bottom:6px; }
+  .speaker-name.npc{ color:var(--gold); }
+  .speaker-name.player{ color:var(--teal); }
+  .speaker-name.narrator{ color:var(--dim); }
+  .speech-text{ font-size:20px; line-height:1.35; }
+
+  .choices{ padding:10px 14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .choice-btn{
+    text-align:left; background:#332b52; border:3px solid var(--panel-edge);
+    color:var(--text); font-family:'VT323'; font-size:19px; padding:9px 12px;
+    cursor:pointer; display:flex; justify-content:space-between; align-items:center;
+  }
+  .choice-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .choice-btn:disabled{ opacity:.4; cursor:default; }
+  .choice-btn:disabled:hover{ border-color:var(--panel-edge); color:var(--text); }
+  .choice-btn.choice-unlocked{ color:var(--teal); border-color:#3a6b63; }
+  .choice-btn.choice-unlocked:hover{ border-color:var(--gold); color:var(--gold); }
+  .choice-btn .tag{
+    font-family:'Press Start 2P'; font-size:8px; color:var(--danger); margin-left:10px; white-space:nowrap;
+  }
+  .choice-btn .status{
+    font-family:'Press Start 2P'; font-size:8px; color:var(--success); margin-left:10px; white-space:nowrap;
+  }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,8,20,.75);
+    display:flex; align-items:center; justify-content:center; z-index:10;
+  }
+  .roll-card{
+    background:var(--panel); border:4px solid var(--gold); padding:26px 30px;
+    text-align:center; width:280px;
+  }
+  .roll-card h3{ font-family:'Press Start 2P'; font-size:12px; color:var(--gold); margin:0 0 14px; }
+  .die{
+    font-family:'Press Start 2P'; font-size:34px; color:var(--text); margin:10px 0;
+    min-height:48px;
+  }
+  .roll-math{ font-size:18px; color:var(--dim); margin-bottom:14px; }
+  .roll-btn{
+    font-family:'Press Start 2P'; font-size:11px; background:var(--teal); color:#161327;
+    border:none; padding:10px 18px; cursor:pointer;
+  }
+  .roll-btn:disabled{ background:#4a3f6b; color:var(--dim); cursor:default; }
+  .roll-result{ font-family:'Press Start 2P'; font-size:13px; margin-top:12px; }
+  .roll-result.success{ color:var(--success); }
+  .roll-result.fail{ color:var(--danger); }
+
+  .mod-row{ display:flex; justify-content:center; gap:10px; align-items:center; margin-bottom:6px; font-size:16px; }
+  .mod-row input{
+    width:46px; font-family:'VT323'; font-size:18px; text-align:center;
+    background:#332b52; color:var(--text); border:2px solid var(--panel-edge);
+  }
+
+  /* --- character select --- */
+  .char-select{ padding:20px; }
+  .char-select h2{
+    font-family:'Press Start 2P'; font-size:14px; color:var(--gold);
+    text-align:center; margin:0 0 4px;
+  }
+  .char-select .sub{ text-align:center; color:var(--dim); font-size:16px; margin-bottom:18px; }
+  .char-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
+  }
+  @media (max-width:480px){
+    .char-grid{ grid-template-columns:repeat(2, 1fr); }
+  }
+  .char-card{
+    background:#332b52; border:3px solid var(--panel-edge); padding:10px 8px;
+    text-align:center; cursor:pointer;
+  }
+  .char-card:hover{ border-color:var(--gold); }
+  .char-card.dm-card{ border-color:#5a4f7a; opacity:.75; }
+  .char-card.dm-card:hover{ border-color:var(--dim); opacity:1; }
+  .char-card .cportrait{
+    position:relative;
+    width:100%; aspect-ratio:1; border:2px solid var(--panel-edge); margin-bottom:8px;
+    display:flex; align-items:center; justify-content:center; overflow:visible;
+    font-family:'Press Start 2P'; font-size:8px; color:var(--dim); background:#241f38;
+  }
+  .char-card .cportrait img{ width:100%; height:100%; object-fit:cover; }
+  .char-card .cname{ font-family:'Press Start 2P'; font-size:11px; color:var(--text); margin-bottom:6px; }
+  .char-card .cblurb{ font-size:14px; color:var(--dim); min-height:34px; }
+  .char-card .ctags{ display:flex; flex-wrap:wrap; gap:4px; justify-content:center; margin-top:6px; }
+  .char-card .ctag{
+    font-family:'Press Start 2P'; font-size:7px; color:#161327; background:var(--teal);
+    padding:3px 5px;
+  }
+
+  /* --- title screen --- */
+  .title-screen{ padding:50px 24px; text-align:center; }
+  .title-screen .logo{
+    font-family:'Press Start 2P'; font-size:28px; color:var(--gold); line-height:1.5;
+    text-shadow:3px 3px 0 var(--bg-deep);
+  }
+  .title-screen .tagline{ font-family:'Press Start 2P'; font-size:11px; color:var(--teal); margin:10px 0 14px; }
+  .title-screen .flavor{ font-size:18px; color:var(--dim); margin-bottom:36px; }
+  .title-screen .beginbtn{
+    font-family:'Press Start 2P'; font-size:13px; background:var(--gold); color:#161327;
+    border:none; padding:14px 26px; cursor:pointer;
+  }
+  .title-screen .beginbtn:hover{ background:var(--teal); }
+  .title-screen .logbtn{
+    display:block; margin:18px auto 0; background:none; border:none; cursor:pointer;
+    font-family:'VT323'; font-size:17px; color:var(--dim); text-decoration:underline;
+  }
+  .title-screen .logbtn:hover{ color:var(--gold); }
+
+  /* --- dm gate (nonsense riddle) --- */
+  .gate-screen{ padding:40px 24px; text-align:center; }
+  .gate-screen h2{ font-family:'Press Start 2P'; font-size:13px; color:var(--gold); margin-bottom:24px; }
+  .gate-screen .riddle{ font-size:22px; margin-bottom:26px; line-height:1.4; }
+  .gate-screen .secret-dot{ cursor:default; padding:0 4px; }
+  .gate-answers{ display:flex; flex-direction:column; gap:10px; max-width:340px; margin:0 auto; }
+  .gate-msg{ margin-top:18px; color:var(--dim); font-size:16px; min-height:20px; }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+  .shake{ animation:shake .25s; }
+
+  /* --- dm settings --- */
+  .dm-screen{ padding:20px; }
+  .dm-screen h2{ font-family:'Press Start 2P'; font-size:13px; color:var(--gold); margin:0 0 4px; }
+  .dm-section{ margin-top:22px; }
+  .dm-section h3{ font-family:'Press Start 2P'; font-size:10px; color:var(--teal); margin-bottom:10px; }
+  .stat-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-bottom:10px; font-size:17px; }
+  .stat-row .sname{ width:100%; flex-shrink:0; }
+  .stat-row label{ font-size:13px; color:var(--dim); display:flex; align-items:center; gap:4px; }
+  .stat-row input{
+    width:50px; font-family:'VT323'; font-size:16px; text-align:center;
+    background:#332b52; color:var(--text); border:2px solid var(--panel-edge);
+  }
+  .progress-card{
+    background:#332b52; border:3px solid var(--panel-edge); padding:10px 12px; margin-bottom:10px; font-size:16px;
+  }
+  .progress-card .pname{ font-family:'Press Start 2P'; font-size:11px; color:var(--gold); margin-bottom:6px; }
+  .progress-card .pline{ color:var(--dim); margin-bottom:2px; }
+  .resetbtn{
+    margin-top:8px; font-family:'Press Start 2P'; font-size:8px; background:var(--danger); color:#2a0f14;
+    border:none; padding:7px 10px; cursor:pointer;
+  }
+  .note-item{ background:#332b52; border:3px solid var(--panel-edge); padding:8px 10px; margin-bottom:8px; }
+  .note-item .ndate{ font-family:'Press Start 2P'; font-size:9px; color:var(--teal); margin-bottom:4px; }
+  .note-item .ntext{ font-size:17px; white-space:pre-wrap; }
+  .note-form{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .note-form input[type=date]{ background:#332b52; color:var(--text); border:2px solid var(--panel-edge); font-family:'VT323'; font-size:15px; padding:4px; }
+  .note-form textarea{
+    background:#332b52; color:var(--text); border:2px solid var(--panel-edge);
+    font-family:'VT323'; font-size:17px; padding:6px; resize:vertical; min-height:60px;
+  }
+  .note-form button{
+    align-self:flex-start; font-family:'Press Start 2P'; font-size:9px; background:var(--success);
+    color:#0f2a13; border:none; padding:8px 12px; cursor:pointer;
+  }
+  .adv-item{ background:#332b52; border:3px solid var(--panel-edge); padding:8px 10px; margin-bottom:8px; }
+  .adv-item .aname{ font-family:'Press Start 2P'; font-size:11px; color:var(--gold); margin-bottom:4px; }
+  .adv-item .abuilt{ color:var(--dim); font-size:14px; }
+  .adv-form{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .adv-form input[type=text]{
+    background:#332b52; color:var(--text); border:2px solid var(--panel-edge);
+    font-family:'VT323'; font-size:17px; padding:6px;
+  }
+  .adv-form textarea{
+    background:#1c1830; color:var(--text); border:2px solid var(--panel-edge);
+    font-family:monospace; font-size:13px; padding:8px; resize:vertical; min-height:160px;
+  }
+  .adv-form select{
+    background:#332b52; color:var(--text); border:2px solid var(--panel-edge);
+    font-family:'VT323'; font-size:17px; padding:6px;
+  }
+  .adv-form label.adv-label{ color:var(--dim); font-size:14px; }
+  .adv-hint{ color:var(--dim); font-size:14px; line-height:1.4; }
+  .adv-hint code{ background:#1c1830; color:var(--teal); padding:1px 4px; font-family:monospace; }
+  .adv-error{ color:var(--danger); font-size:15px; min-height:18px; }
+  .delbtn{
+    float:right; background:none; border:none; color:var(--danger); font-family:'Press Start 2P'; font-size:8px; cursor:pointer;
+  }
+  .backbtn{
+    margin-top:20px; font-family:'Press Start 2P'; font-size:9px; background:#332b52; color:var(--text);
+    border:3px solid var(--panel-edge); padding:9px 14px; cursor:pointer;
+  }
+  .backbtn:hover{ border-color:var(--gold); }
+
+  .music-toggle{
+    position:fixed; top:10px; right:10px; z-index:50;
+    background:var(--panel); border:3px solid var(--panel-edge); color:var(--text);
+    font-size:16px; width:40px; height:40px; padding:0; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .music-toggle:hover{ border-color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="game" id="game"></div>
+
+<script>
+/* ============================================================
+   1. ASSET SLOTS
+   Drop your own 8-bit PNGs in an /images folder next to this
+   file and put the filename here. Anything left blank shows a
+   placeholder box with a label so you always know what's missing.
+
+   ANIMATION: give a portrait an array of 2-4 filenames instead of
+   one string and it loops through them (about 2.5 frames/sec) —
+   e.g. brakka: ["images/brakka_1.png","images/brakka_2.png","images/brakka_3.png"]
+   Brakka currently has no image files, so he shows a hand-built
+   breathing + nostril-flare placeholder instead, as a working demo
+   of the animation feature.
+   ============================================================ */
+const IMAGES = {
+  backgrounds: {
+    snapping_line_main: null, // e.g. "images/snapping_line.png"
+    empty_net_main: null,     // e.g. "images/empty_net.png"
+    wicker_goat_main: null,   // e.g. "images/wicker_goat.png"
+    market_main: null,        // e.g. "images/market_row.png"
+    stocks: null,             // e.g. "images/town_stocks.png"
+  },
+  portraits: {
+    // the DM — shown on the character select "Dungeon Master" card,
+    // and as the speaker portrait for every narrator line in-game
+    dm: null,                // e.g. "images/dm.jpg"
+    // player presets
+    ash: ["images/ash1.jpg"],
+    nyx: ["images/nyx1.jpg", "images/nyx1.jpg", "images/nyx1.jpg", "images/nyx3.jpg", "images/nyx2.jpg", "images/nyx3.jpg"],
+    timmy: ["images/timmy1.jpg"],
+    brakka: ["images/brakka1.jpg", "images/brakka1.jpg", "images/brakka1.jpg", "images/brakka2.jpg", "images/brakka2.jpg", "images/brakka1.jpg", "images/brakka2.jpg", "images/brakka1.jpg", "images/brakka3.jpg"],
+    durgon: ["images/durgon1.jpg"],
+    // NPCs — Snapping Line
+    hanna: null,
+    pike: null,
+    squint: null,
+    // NPCs — Empty Net
+    kreb: null,
+    ressa: null,
+    shivver: null,
+    // NPCs — Wicker Goat
+    lankus: null,
+    torvin: null,
+    corley: null,
+    // reserved for whenever Market gets its own story
+    merchant: null,
+  }
+};
+
+/* ============================================================
+   1b. AUDIO
+   Same idea as IMAGES: drop an audio file path in, leave null for
+   silence — nothing plays until you add real files. "menu" loops on
+   every screen EXCEPT a location scene or the jail/stocks screen.
+   Each entry under "backgrounds" loops for as long as a location
+   scene showing that background is on screen — keyed by the exact
+   same background key used in IMAGES.backgrounds and in each node's
+   "background" field, so a DM-posted adventure that reuses an
+   existing background key (e.g. "market_main") automatically gets
+   that background's music too, no extra wiring needed. A background
+   key with no matching entry here just plays silently.
+   ============================================================ */
+const AUDIO = {
+  menu: null,                 // e.g. "audio/menu_theme.mp3"
+  backgrounds: {
+    snapping_line_main: null, // e.g. "audio/snapping_line_ambience.mp3"
+    empty_net_main: null,
+    wicker_goat_main: null,
+    market_main: null,
+    stocks: null,
+  }
+};
+
+/* ============================================================
+   1c. CHARACTER PRESETS
+   These live-edit from the in-game DM settings screen (no code
+   editing needed once you're testing), but you can also just
+   change the starting numbers here.
+   ============================================================ */
+const PRESETS = {
+  ash:    { name: "Ash",    blurb: "Silver-tongued and quick to smile.",         portrait: "ash",    stats: { Str: 0,  Dex: 2,  Con: 0, Int: 1,  Wis: 1, Cha: 4 }, startingGold: 0 },
+  nyx:    { name: "Nyx",    blurb: "Moves like smoke, speaks rarely.",           portrait: "nyx",    stats: { Str: -1, Dex: 4,  Con: 0, Int: 1,  Wis: 2, Cha: 0 }, startingGold: 0 },
+  timmy:  { name: "Timmy",  blurb: "Earnest, a little clumsy, easy to trust.",   portrait: "timmy",  stats: { Str: 0,  Dex: -1, Con: 1, Int: 0,  Wis: 1, Cha: 2 }, startingGold: 0 },
+  brakka: { name: "Brakka", blurb: "Built like a door, twice as hard to move.",  portrait: "brakka", stats: { Str: 4,  Dex: -1, Con: 3, Int: -1, Wis: 0, Cha: 0 }, startingGold: 0 },
+  durgon: { name: "Durgon", blurb: "Commanding presence, charm to match.",       portrait: "durgon", stats: { Str: 3,  Dex: 0,  Con: 2, Int: 1,  Wis: 0, Cha: 3 }, startingGold: 0 }
+};
+const SKILL_LIST = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
+
+/* ============================================================
+   1d. CAMPAIGN NOTES
+   Added from the DM settings screen. Players see these
+   read-only from the "Campaign Notes" link on the hub screen.
+   ============================================================ */
+let NOTES = [
+  {
+    date: "2026-07-04",
+    text: "Session Recap: The Escape from the Salt Stacks\n\nThe party began their adventure in the infamous Salt Stacks, a cavernous island prison known for its harsh reputation, no one leaves the stacks alive.\n\nFortunately, they soon found some unlikely allies in Captain Stormbeard and his dubious crew. Together, they faced the challenges of the prison break, causing enough chaos to not only escape, but also reclaim some much-needed equipment and loot from the Guard Captain's quarters.\n\nAlong the way, they discovered something, or rather someone, far more interesting: a mysterious prisoner sealed behind iron, wearing an ominous iron mask and mad with rage. Against all better judgement, they decided to free him.\n\nWith the prison in chaos, the party and Stormbeard's crew made their escape. They managed to land a direct hit on the pursuing guard ship, crippling it and ensuring no one would be following them anytime soon.\n\nUnfortunately, their own ship was damaged in the battle.\n\nAlready battered from the escape, it took on far too much damage and was taking on too much water. With no choice but to abandon ship, the party scrambled to the ships Jolly Boats and rowed off into the night.\n\nThey may have lost their vessel, but they escaped the Salt Stacks with their lives, set free a potentially dangerous criminal, and made a few questionable new friends."
+  }
+];
+
+/* ============================================================
+   2. LOCATIONS
+   Node-graph scenes — the actual dialogue/choice content for an
+   adventure. A choice's "next" can point to another node, OR to
+   one of two special values:
+     "__COMPLETE__"  -> ends the visit, marks this adventure done
+     "__JAIL__"      -> ends the visit in the stocks
+
+   This is the framework with the story content stripped out,
+   left with ONE small worked example demonstrating every
+   mechanic so far: a GROUP adventure ("Night on the Town",
+   containing one location, "tavern_stop") and a chained LOCATION
+   adventure ("Visit the Market") that requires the group cleared
+   first, with a choice gated behind an ally, an item/gold effect,
+   and a point-of-no-return node. Copy this pattern to build real
+   adventures in code, or post new ones from DM Settings without
+   touching code at all — see BUILTIN_ADVENTURES below for how
+   groups vs. single-location adventures are declared.
+   ============================================================ */
+const LOCATIONS = {
+
+  snapping_line: {
+    name: "The Snapping Line",
+    start: "start",
+    nodes: {
+      start: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The Snapping Line is built from the bones of half a dozen retired fishing boats, and it hasn't forgotten. The smell of old catch is baked into the planks. Dice rattle in one corner; behind the bar, a woman with rolled sleeves and a sharp eye keeps watch over the room — Hanna Rist, by the look of the family resemblance to half the lobster boats in the harbor.",
+        choices: [
+          { text: "Talk to Hanna Rist", next: "hanna_intro", branchKey: "hanna" },
+          { text: "Listen in on the dockhands", next: "dockhands_intro" },
+          { text: "Join the dice game", next: "dice_intro" },
+          { text: "Try your luck lifting a purse", next: "pickpocket_intro" },
+          { text: "Leave for the night", next: "__COMPLETE__" }
+        ]
+      },
+      hanna_intro: {
+        background: "snapping_line_main",
+        speaker: { name: "Hanna Rist", type: "npc", portrait: "hanna" },
+        text: "\"New face. Sit if you like — just don't sit *there*, that stool's held together by spite. Can I get you something? Fair warning, my family's claw wine has a reputation, and it's not a good one.\"",
+        noReturn: true,
+        choices: [
+          { text: "Try the claw wine", next: "hanna_wine" },
+          { text: "Ask about her family's fishing business", next: "hanna_family" },
+          { text: "Just chat, no drink needed", next: "hanna_friendly" }
+        ]
+      },
+      hanna_wine: {
+        background: "snapping_line_main",
+        speaker: { name: "Hanna Rist", type: "npc", portrait: "hanna" },
+        text: "\"Ha! Most people ask twice before they actually do it.\" She pours generously and watches with open glee as you drink. It tastes like the ocean took something personal. \"Congratulations. You've survived the family recipe.\"",
+        effect: { addAlly: "Hanna Rist" },
+        choices: [ { text: "Ask if she's heard anything interesting lately", next: "hanna_secret_market" } ]
+      },
+      hanna_family: {
+        background: "snapping_line_main",
+        speaker: { name: "Hanna Rist", type: "npc", portrait: "hanna" },
+        text: "\"Rists have hauled lobster out of this harbor for three generations. My father still goes out most mornings — swears the wine keeps his joints young.\"",
+        effect: { addAlly: "Hanna Rist" },
+        choices: [ { text: "Ask if she's heard anything interesting lately", next: "hanna_secret_market" } ]
+      },
+      hanna_friendly: {
+        background: "snapping_line_main",
+        speaker: { name: "Hanna Rist", type: "npc", portrait: "hanna" },
+        text: "\"Not everyone who sits down wants something from me. That's nice, actually.\"",
+        effect: { addAlly: "Hanna Rist" },
+        choices: [ { text: "Ask if she's heard anything interesting lately", next: "hanna_secret_market" } ]
+      },
+      hanna_secret_market: {
+        background: "snapping_line_main",
+        speaker: { name: "Hanna Rist", type: "npc", portrait: "hanna" },
+        text: "She lowers her voice, more habit than real worry. \"On the darkest nights, when there's no moon, people say there's a market that sets up under Sharkfin Bridge. Gone by sunrise, no trace. Elves hate that bridge already, on account of the old curse — nobody with sharp eyes is watching that stretch after dark. Convenient, that.\"",
+        effect: { addInfo: "Rumor: a market appears under Sharkfin Bridge on moonless nights, gone by dawn." },
+        choices: [ { text: "Head out", next: "hanna_wrapup" } ]
+      },
+      hanna_wrapup: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The dinner rush swallows Hanna whole — three drink orders deep and waving distractedly. She's done talking for now, but the rest of the room's still yours.",
+        markVisited: "hanna",
+        choices: [
+          { text: "See who else is around", next: "start" },
+          { text: "Head out for the night", next: "__COMPLETE__" }
+        ]
+      },
+
+      dockhands_intro: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A knot of dockhands is deep in grumbling conversation near the hearth — something about the guard sniffing around the piers again, \"like decent folk are the only ones moving cargo that ain't strictly logged.\"",
+        noReturn: true,
+        choices: [
+          { text: "Lean in and listen closer", skillCheck: { skill: "Wis", dc: 11 }, onSuccess: "dockhands_success", onFail: "dockhands_fail" },
+          { text: "Buy them a round instead", next: "dockhands_friendly" },
+          { text: "Shrug and let it go", next: "dockhands_wrapup" }
+        ]
+      },
+      dockhands_success: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You catch a name dropped low — a \"night market\" that sets up whenever a particular ship makes port, selling things you'd never find at the Weekly Market. Nobody says which ship, or when.",
+        effect: { addInfo: "Rumor: a 'night market' appears when a certain ship docks, selling goods absent from the Weekly Market." },
+        choices: [ { text: "Head out", next: "dockhands_wrapup" } ]
+      },
+      dockhands_fail: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "One of them clocks you leaning in and the table goes quiet, eyes on you until you take the hint and back off. No harm done, just a cold shoulder.",
+        choices: [ { text: "Head out", next: "dockhands_wrapup" } ]
+      },
+      dockhands_friendly: {
+        background: "snapping_line_main",
+        speaker: { name: "Pike", type: "npc", portrait: "pike" },
+        text: "\"Didn't expect a round out of a stranger. I'm Pike — load and unload half of what comes through here. Need something carried quiet, I'm your man.\"",
+        effect: { addAlly: "Pike" },
+        choices: [
+          { text: "Ask if he's heard anything interesting", next: "pike_rumor" },
+          { text: "Just enjoy the company", next: "dockhands_wrapup" }
+        ]
+      },
+      pike_rumor: {
+        background: "snapping_line_main",
+        speaker: { name: "Pike", type: "npc", portrait: "pike" },
+        text: "\"Interesting? There's talk of a night market. Shows up when the right ship's in, sells stuff you won't see at the Weekly. Never been invited myself. Just dock talk.\"",
+        effect: { addInfo: "Rumor: a 'night market' appears when a certain ship docks, selling goods absent from the Weekly Market." },
+        choices: [ { text: "Head out", next: "dockhands_wrapup" } ]
+      },
+      dockhands_wrapup: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The dockhands peel off one by one, back to boats leaving before dawn. Nothing left to do here but head out.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      dice_intro: {
+        background: "snapping_line_main",
+        speaker: { name: "Squint", type: "npc", portrait: "squint" },
+        text: "\"Room for one more, if you're not scared of losing a little coin to a man with bad depth perception.\" Between rolls, he mutters something about a game he'll never see the inside of — some private high-stakes thing that moves house to house among the well-off, always somewhere different, always somebody else's invitation.",
+        noReturn: true,
+        effect: { addInfo: "Rumor: a private high-stakes game rotates between the homes of Saltmarsh's wealthiest residents — invite only." },
+        choices: [
+          { text: "Join the game (wager 10 gold)", skillCheck: { skill: "Cha", dc: 10 }, onSuccess: "dice_round1_win", onFail: "dice_round1_lose" },
+          { text: "Watch and chat instead", next: "dice_watch" }
+        ]
+      },
+      dice_round1_win: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Luck's with you tonight. The table groans good-naturedly as you rake in the pot. Squint raises an eyebrow — up for another round, at steeper stakes?",
+        effect: { addGold: 10 },
+        choices: [
+          { text: "Push your luck (wager 25 gold)", skillCheck: { skill: "Cha", dc: 12 }, onSuccess: "dice_round2_win", onFail: "dice_round2_lose" },
+          { text: "Cash out and head home", next: "dice_wrapup" }
+        ]
+      },
+      dice_round1_lose: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The dice are not your friends tonight. Squint claps you on the shoulder like you've passed some kind of test.",
+        effect: { addGold: -10 },
+        choices: [
+          { text: "Try again (wager 10 gold)", skillCheck: { skill: "Cha", dc: 10 }, onSuccess: "dice_round1_win", onFail: "dice_round1_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_round2_win: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The pot's real money now, and it's yours. A few dockhands drift over to watch. Squint's grin turns competitive — one more round, winner takes a serious haul.",
+        effect: { addGold: 25 },
+        choices: [
+          { text: "Push your luck one more time (wager 50 gold)", skillCheck: { skill: "Cha", dc: 14 }, onSuccess: "dice_round3_win", onFail: "dice_round3_lose" },
+          { text: "Cash out and head home", next: "dice_wrapup" }
+        ]
+      },
+      dice_round2_lose: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "That one stings. The crowd that gathered drifts off, already telling the story of the stranger who pushed too far.",
+        effect: { addGold: -25 },
+        choices: [
+          { text: "Try again (wager 25 gold)", skillCheck: { skill: "Cha", dc: 12 }, onSuccess: "dice_round2_win", onFail: "dice_round2_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_round3_win: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The final roll goes your way, and the Snapping Line erupts. Squint himself looks genuinely rattled as he counts out what he owes you.",
+        effect: { addGold: 50 },
+        choices: [ { text: "Head out, flush with winnings", next: "dice_wrapup" } ]
+      },
+      dice_round3_lose: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The dice turn on you right at the end. Squint pockets his winnings with the grace of a man who's seen this happen a hundred times before.",
+        effect: { addGold: -50 },
+        choices: [
+          { text: "Try again (wager 50 gold)", skillCheck: { skill: "Cha", dc: 14 }, onSuccess: "dice_round3_win", onFail: "dice_round3_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_watch: {
+        background: "snapping_line_main",
+        speaker: { name: "Squint", type: "npc", portrait: "squint" },
+        text: "\"Suit yourself. Name's Squint, by the way — everyone asks about the eye eventually, might as well get it over with.\"",
+        effect: { addAlly: "Squint" },
+        choices: [ { text: "Head out", next: "dice_wrapup" } ]
+      },
+      dice_wrapup: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The game breaks up as the dockhands stumble toward their bunks, coin (or lack of it) forgotten already.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      pickpocket_intro: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A sailor's coin purse hangs loose from his belt while he's three drinks deep into a story nobody's listening to.",
+        noReturn: true,
+        choices: [
+          { text: "Try to lift it", skillCheck: { skill: "Dex", dc: 13 }, onSuccess: "pickpocket_success", onFail: "pickpocket_fail" },
+          { text: "Think better of it", next: "pickpocket_wrapup" }
+        ]
+      },
+      pickpocket_success: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You melt back into the crowd before he even notices the weight's gone missing.",
+        effect: { addGold: 5 },
+        choices: [ { text: "Head out", next: "pickpocket_wrapup" } ]
+      },
+      pickpocket_fail: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "His hand clamps around your wrist before you've got the purse loose. He's shouting for the guard before you can talk your way out of it.",
+        effect: { addConsequence: "Caught pickpocketing at the Snapping Line" },
+        choices: [ { text: "...", next: "__JAIL__" } ]
+      },
+      pickpocket_wrapup: {
+        background: "snapping_line_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Whatever almost happened, nobody's the wiser — and the night's better spent elsewhere anyway.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      }
+    }
+  },
+
+  empty_net: {
+    name: "The Empty Net",
+    start: "start",
+    nodes: {
+      start: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The Empty Net creaks on its stilts above the harbor, thick with pipe smoke and the kind of quiet that comes from everyone minding their own business a little too hard. Behind the bar, Kreb Shenker holds court like he owns the water beneath the floorboards — he doesn't, technically, but nobody's corrected him twice. The guard doesn't come here unless somebody's foolish enough to call them.",
+        choices: [
+          { text: "Talk to Kreb Shenker, the owner", next: "kreb_intro" },
+          { text: "Approach the hooded figure drinking alone", next: "stranger_intro" },
+          { text: "Talk to the twitchy regular in the corner", next: "drunk_intro" },
+          { text: "Join the dice game in the back", next: "dice_intro" },
+          { text: "Try your luck lifting a purse", next: "pickpocket_intro" },
+          { text: "Risk a scratch and pet the cat prowling the rafters", next: "cat_intro" },
+          { text: "Leave for the night", next: "__COMPLETE__" }
+        ]
+      },
+
+      kreb_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Kreb Shenker", type: "npc", portrait: "kreb" },
+        text: "\"Coin's coin here. Doesn't matter where it's from, doesn't matter where you're from. Just don't start something you can't finish.\" He doesn't look up from the mug he's cleaning, but he's watching you anyway.",
+        noReturn: true,
+        choices: [
+          { text: "Prove you're not trouble worth his time", skillCheck: { skill: "Cha", dc: 13 }, onSuccess: "kreb_success", onFail: "kreb_cold" },
+          { text: "Just order a drink and keep to yourself", next: "kreb_neutral" }
+        ]
+      },
+      kreb_success: {
+        background: "empty_net_main",
+        speaker: { name: "Kreb Shenker", type: "npc", portrait: "kreb" },
+        text: "He sizes you up for a long moment, then seems to decide you might be useful someday. \"Business-minded, are you? I can work with that. Name's Kreb. Remember it, if you ever need something moved quiet.\"",
+        effect: { addAlly: "Kreb Shenker" },
+        choices: [
+          { text: "Ask if he's heard anything worth knowing", next: "kreb_extra" },
+          { text: "Thank him and head out", next: "kreb_wrapup" }
+        ]
+      },
+      kreb_extra: {
+        background: "empty_net_main",
+        speaker: { name: "Kreb Shenker", type: "npc", portrait: "kreb" },
+        text: "\"Ships come and go without the harbormaster's say-so more often than the guard likes to admit. High tide, low profile — that's the game. Half this town plays it one way or another, big or small.\"",
+        effect: { addInfo: "Rumor: smuggling ventures run through Saltmarsh at every level, from petty to organized." },
+        choices: [ { text: "Head out", next: "kreb_wrapup" } ]
+      },
+      kreb_cold: {
+        background: "empty_net_main",
+        speaker: { name: "Kreb Shenker", type: "npc", portrait: "kreb" },
+        text: "\"Not interested.\" He turns back to the harbor view without another word, and you get the distinct feeling pressing further would be a mistake.",
+        choices: [ { text: "Head out", next: "kreb_wrapup" } ]
+      },
+      kreb_neutral: {
+        background: "empty_net_main",
+        speaker: { name: "Kreb Shenker", type: "npc", portrait: "kreb" },
+        text: "He nods once, takes your coin, says nothing else. Some conversations end before they start.",
+        choices: [ { text: "Head out", next: "kreb_wrapup" } ]
+      },
+      kreb_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "New custom rolls in through the door and Kreb's attention drifts there instead. You've been dismissed, politely enough.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      stranger_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Ressa", type: "npc", portrait: "ressa" },
+        text: "\"You're new. Sit, don't sit — doesn't matter to me. But if you're the sort who knows when to keep quiet, I might have use for someone like you.\"",
+        noReturn: true,
+        choices: [
+          { text: "Persuade her you can be trusted", skillCheck: { skill: "Cha", dc: 13 }, onSuccess: "stranger_success", onFail: "stranger_cold" },
+          { text: "Ask plainly what she deals in", next: "stranger_plain" }
+        ]
+      },
+      stranger_success: {
+        background: "empty_net_main",
+        speaker: { name: "Ressa", type: "npc", portrait: "ressa" },
+        text: "\"...Alright. You've got an honest face, or a very good act. Either works for me. Find me here again if you ever want in on something bigger.\"",
+        effect: { addAlly: "Ressa" },
+        choices: [
+          { text: "Ask what kind of \"something bigger\"", next: "stranger_extra" },
+          { text: "Head out", next: "stranger_wrapup" }
+        ]
+      },
+      stranger_extra: {
+        background: "empty_net_main",
+        speaker: { name: "Ressa", type: "npc", portrait: "ressa" },
+        text: "\"There's a market — you might've heard whispers. Moves with the tide, shows up only when the right ship's due. I'd tell you more, but that's a conversation for later. After you've proven useful.\"",
+        effect: { addInfo: "Rumor: a 'night market' appears when a certain ship docks, selling goods absent from the Weekly Market." },
+        choices: [ { text: "Head out", next: "stranger_wrapup" } ]
+      },
+      stranger_cold: {
+        background: "empty_net_main",
+        speaker: { name: "Ressa", type: "npc", portrait: "ressa" },
+        text: "\"...Not convincing. Come back when you've got a reason for me to care.\"",
+        choices: [ { text: "Head out", next: "stranger_wrapup" } ]
+      },
+      stranger_plain: {
+        background: "empty_net_main",
+        speaker: { name: "Ressa", type: "npc", portrait: "ressa" },
+        text: "\"Wouldn't you like to know. Not here, not with strangers listening. Earn a little trust first.\"",
+        choices: [ { text: "Head out", next: "stranger_wrapup" } ]
+      },
+      stranger_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Ressa melts back into the crowd noise and shadow, gone before you can get another word in.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      drunk_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Shivver", type: "npc", portrait: "shivver" },
+        text: "\"'Wasn't nothin'.'\" He mutters it to his cup, then glances up at you, then at the door, like he's checking who's listening. \"You look like you might actually listen. Nobody else here does.\"",
+        noReturn: true,
+        choices: [
+          { text: "Press him for details", next: "drunk_details" },
+          { text: "Buy him another drink to loosen his tongue", next: "drunk_drink" }
+        ]
+      },
+      drunk_details: {
+        background: "empty_net_main",
+        speaker: { name: "Shivver", type: "npc", portrait: "shivver" },
+        text: "\"Slept off a bad night near Crabber's Cove — don't ask why. Woke up sure as anything something was *talking* to me. Nobody there.\" He glances at the door again. \"In a place like this, you learn not to ask questions you don't want answered. That cove's one of 'em.\"",
+        effect: { addInfo: "Rumor: something spoke to a drunk sleeping near Crabber's Cove at night." },
+        choices: [ { text: "Head out", next: "drunk_wrapup" } ]
+      },
+      drunk_drink: {
+        background: "empty_net_main",
+        speaker: { name: "Shivver", type: "npc", portrait: "shivver" },
+        text: "Another round in him and he's telling anyone who'll listen — a voice, near Crabber's Cove, no one there when he looked, and he still checks over his shoulder every few minutes like it followed him back.",
+        effect: { addInfo: "Rumor: something spoke to a drunk sleeping near Crabber's Cove at night." },
+        choices: [ { text: "Head out", next: "drunk_wrapup" } ]
+      },
+      drunk_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Shivver goes quiet again, eyes fixed on the door. Done talking for the night, one way or another.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      dice_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A ring of rough hands is playing dice in the back corner — stakes higher than you'd see at the other taverns, and the dice look a little too polished to be entirely honest. One of the players, mid-shuffle, mentions doing \"quiet work\" once for a private game that never sets up in the same house twice — rich folk, invite only, and he was paid well to keep his mouth shut about the details. He's not being paid tonight, though.",
+        noReturn: true,
+        effect: { addInfo: "Rumor: a private high-stakes game rotates between the homes of Saltmarsh's wealthiest residents — invite only." },
+        choices: [
+          { text: "Play it straight and watch for the trick (wager 20 gold)", skillCheck: { skill: "Wis", dc: 12 }, onSuccess: "dice_round1_honest_win", onFail: "dice_round1_honest_lose" },
+          { text: "Slip in a cheat of your own", skillCheck: { skill: "Dex", dc: 14 }, onSuccess: "dice_cheat_win", onFail: "dice_caught" }
+        ]
+      },
+      dice_round1_honest_win: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You spot the switch before it costs you and walk away even, plus a little extra for being sharp-eyed. The table's watching now — another round, higher stakes?",
+        effect: { addGold: 20 },
+        choices: [
+          { text: "Push your luck (wager 45 gold)", skillCheck: { skill: "Wis", dc: 14 }, onSuccess: "dice_round2_honest_win", onFail: "dice_round2_honest_lose" },
+          { text: "Cash out and head home", next: "dice_wrapup" }
+        ]
+      },
+      dice_round1_honest_lose: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The dice weren't exactly fair, and neither was tonight's luck.",
+        effect: { addGold: -20 },
+        choices: [
+          { text: "Try again (wager 20 gold)", skillCheck: { skill: "Wis", dc: 12 }, onSuccess: "dice_round1_honest_win", onFail: "dice_round1_honest_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_round2_honest_win: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The pot's serious now, and it's yours. Even the regulars who never look up are looking up. One more round, if you've got the nerve.",
+        effect: { addGold: 45 },
+        choices: [
+          { text: "Push your luck one more time (wager 90 gold)", skillCheck: { skill: "Wis", dc: 16 }, onSuccess: "dice_round3_honest_win", onFail: "dice_round3_honest_lose" },
+          { text: "Cash out and head home", next: "dice_wrapup" }
+        ]
+      },
+      dice_round2_honest_lose: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "That one costs you, and costs you visibly. Nobody says anything, but a few looks are exchanged.",
+        effect: { addGold: -45 },
+        choices: [
+          { text: "Try again (wager 45 gold)", skillCheck: { skill: "Wis", dc: 14 }, onSuccess: "dice_round2_honest_win", onFail: "dice_round2_honest_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_round3_honest_win: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The final roll goes your way, and for one of the only times all night, the Empty Net actually gets loud. Even Kreb glances over from the bar.",
+        effect: { addGold: 90 },
+        choices: [ { text: "Head out, flush with winnings", next: "dice_wrapup" } ]
+      },
+      dice_round3_honest_lose: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The last roll turns on you, hard. The table goes back to business as if nothing happened, which somehow feels worse.",
+        effect: { addGold: -90 },
+        choices: [
+          { text: "Try again (wager 90 gold)", skillCheck: { skill: "Wis", dc: 16 }, onSuccess: "dice_round3_honest_win", onFail: "dice_round3_honest_lose" },
+          { text: "Cut your losses and head out", next: "dice_wrapup" }
+        ]
+      },
+      dice_cheat_win: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You out-cheat the cheaters, and nobody's the wiser. A win's a win, and a bigger one for the risk.",
+        effect: { addGold: 40 },
+        choices: [ { text: "Head out", next: "dice_wrapup" } ]
+      },
+      dice_caught: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Somebody's faster eyes catch your hand where it shouldn't be. No warning, no guard — just several sets of hands, and then the cold shock of harbor water closing over your head.",
+        effect: { addConsequence: "Thrown into the harbor at the Empty Net" },
+        choices: [ { text: "Climb out, soaked and humiliated", next: "__COMPLETE__" } ]
+      },
+      dice_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The game breaks up fast, dice pocketed the moment coin stops changing hands — best not to be around when someone finally notices the switch.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      pickpocket_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A grizzled pirate's coin purse hangs loose at his hip while he arm-wrestles a friend for bragging rights. Everyone's watching the match — nobody's watching him.",
+        noReturn: true,
+        choices: [
+          { text: "Go for it", skillCheck: { skill: "Dex", dc: 14 }, onSuccess: "pickpocket_success", onFail: "pickpocket_caught" },
+          { text: "Think better of it", next: "pickpocket_wrapup" }
+        ]
+      },
+      pickpocket_success: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You're gone before the match even finishes.",
+        effect: { addGold: 10 },
+        choices: [ { text: "Head out", next: "pickpocket_wrapup" } ]
+      },
+      pickpocket_caught: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "He doesn't need to call the guard — out here, the tavern handles its own problems. You're airborne before you finish apologizing, and the harbor's colder than you remember.",
+        effect: { addConsequence: "Thrown into the harbor at the Empty Net" },
+        choices: [ { text: "Climb out, soaked and humiliated", next: "__COMPLETE__" } ]
+      },
+      pickpocket_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Whatever you did or didn't do, it's clearly time to be somewhere else.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      cat_intro: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A cat with one eye and the scars to match prowls the rafters like it's daring someone to try something. It does not look like it loses fights.",
+        noReturn: true,
+        choices: [
+          { text: "Offer it a scrap from your plate", next: "cat_success" },
+          { text: "Try to win it over with charm alone", skillCheck: { skill: "Cha", dc: 9 }, onSuccess: "cat_success", onFail: "cat_fail" }
+        ]
+      },
+      cat_success: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "It takes the scrap without ceremony, sizes you up, and allows one grudging head-bump. High praise, probably, coming from this one.",
+        effect: { addAlly: "The Empty Net's cat" },
+        choices: [ { text: "Head out", next: "cat_wrapup" } ]
+      },
+      cat_fail: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "It looks at you the way it looks at everyone in here — unimpressed and mildly threatening — then vanishes back into the rafters.",
+        choices: [ { text: "Head out", next: "cat_wrapup" } ]
+      },
+      cat_wrapup: {
+        background: "empty_net_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The cat has patrols to run. You should probably get moving too.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      }
+    }
+  },
+
+  wicker_goat: {
+    name: "The Wicker Goat",
+    start: "start",
+    nodes: {
+      start: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The Wicker Goat is the oldest set of walls in Saltmarsh, and it looks it — but what it lacks in polish it makes up for in nightly custom. Dwarven miners crowd one end of the bar, off-duty guards the other, and somewhere between them a retired old soldier keeps order without ever raising his voice.",
+        choices: [
+          { text: "Talk to Lankus Kurrid, the owner", next: "lankus_intro", branchKey: "lankus" },
+          { text: "Sit with the dwarven miners", next: "miners_intro" },
+          { text: "Chat up an off-duty guard", next: "guard_intro" },
+          { text: "Join a game of bones with the guards", next: "goat_dice_intro" },
+          { text: "Try your luck lifting a coin purse", next: "goat_pickpocket_intro" },
+          { text: "Leave for the night", next: "__COMPLETE__" }
+        ]
+      },
+      lankus_intro: {
+        background: "wicker_goat_main",
+        speaker: { name: "Lankus Kurrid", type: "npc", portrait: "lankus" },
+        text: "\"Used to keep the peace out there. Now I keep it in here, which mostly means cutting people off before the miners and the guard start swinging at each other over nothing. Sit, if you're not here to start something.\"",
+        noReturn: true,
+        choices: [
+          { text: "Ask about his time in the guard", next: "lankus_lore" },
+          { text: "Offer to buy him a drink", next: "lankus_drink" }
+        ]
+      },
+      lankus_lore: {
+        background: "wicker_goat_main",
+        speaker: { name: "Lankus Kurrid", type: "npc", portrait: "lankus" },
+        text: "\"Keoish army first, then the town guard. Retired the day my knees gave out before my temper did.\" He almost smiles. \"This place is quieter. Mostly.\"",
+        effect: { addAlly: "Lankus Kurrid" },
+        choices: [
+          { text: "Ask if he's heard anything odd lately", next: "lankus_extra" },
+          { text: "Thank him and head out", next: "lankus_wrapup" }
+        ]
+      },
+      lankus_drink: {
+        background: "wicker_goat_main",
+        speaker: { name: "Lankus Kurrid", type: "npc", portrait: "lankus" },
+        text: "He accepts, surprised. \"Don't get offered many free ones these days. Appreciated.\"",
+        effect: { addAlly: "Lankus Kurrid" },
+        choices: [
+          { text: "Ask if he's heard anything odd lately", next: "lankus_extra" },
+          { text: "Thank him and head out", next: "lankus_wrapup" }
+        ]
+      },
+      lankus_extra: {
+        background: "wicker_goat_main",
+        speaker: { name: "Lankus Kurrid", type: "npc", portrait: "lankus" },
+        text: "\"Word going round is one of the stalls at the Weekly Market keeps a second set of goods under the counter. Not my business what people buy on their day off, but I hear you've got to know how to ask.\"",
+        effect: { addInfo: "Rumor: a stall at the Weekly Market sells more than it lists, if you know which vendor to ask and how to ask it." },
+        choices: [ { text: "Head out", next: "lankus_wrapup" } ]
+      },
+      lankus_wrapup: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Lankus gets pulled away to settle a dispute over an unpaid tab, and doesn't look like he's coming back to finish the conversation. The rest of the Wicker Goat is still going strong, though.",
+        markVisited: "lankus",
+        choices: [
+          { text: "See who else is around", next: "start" },
+          { text: "Head out for the night", next: "__COMPLETE__" }
+        ]
+      },
+
+      miners_intro: {
+        background: "wicker_goat_main",
+        speaker: { name: "Torvin", type: "npc", portrait: "torvin" },
+        text: "One of the dwarves waves a mug your way. \"You drink like the surface-folk, or you drink like it matters?\"",
+        noReturn: true,
+        choices: [
+          { text: "Match him drink for drink", skillCheck: { skill: "Con", dc: 12 }, onSuccess: "miners_success", onFail: "miners_fail" },
+          { text: "Ask about the mine instead", next: "miners_talk" }
+        ]
+      },
+      miners_success: {
+        background: "wicker_goat_main",
+        speaker: { name: "Torvin", type: "npc", portrait: "torvin" },
+        text: "He roars approval and slaps the bar hard enough to rattle the mugs. \"HA! Alright, surface-dweller. You'll do.\"",
+        effect: { addAlly: "Torvin" },
+        choices: [ { text: "Head out", next: "miners_wrapup" } ]
+      },
+      miners_fail: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You tap out well before he does, to a chorus of good-natured jeering. No hard feelings, but no new friends either.",
+        choices: [ { text: "Head out", next: "miners_wrapup" } ]
+      },
+      miners_talk: {
+        background: "wicker_goat_main",
+        speaker: { name: "Torvin", type: "npc", portrait: "torvin" },
+        text: "\"Mine's good work, hard work. Manistrad runs a tight operation — she's around here most nights, actually, when she's not down in the shaft.\" He nods toward a stern dwarven woman nursing a drink alone near the door. She doesn't look up.",
+        choices: [ { text: "Head out", next: "miners_wrapup" } ]
+      },
+      miners_wrapup: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The miners turn back to their own argument about vein depths and ore counts, and you're clearly not needed for that one.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      guard_intro: {
+        background: "wicker_goat_main",
+        speaker: { name: "Corley", type: "npc", portrait: "corley" },
+        text: "\"Long shift. Longer week. Half the guard's been run ragged chasing smuggling tips down at the docks — and half of those tips go nowhere.\"",
+        noReturn: true,
+        choices: [
+          { text: "Ask what she means by that", skillCheck: { skill: "Wis", dc: 10 }, onSuccess: "guard_success", onFail: "guard_fail" },
+          { text: "Just let her vent", next: "guard_friendly" }
+        ]
+      },
+      guard_success: {
+        background: "wicker_goat_main",
+        speaker: { name: "Corley", type: "npc", portrait: "corley" },
+        text: "\"It's not one big operation, if that's what you're picturing. It's a dozen small ones and maybe one big one hiding underneath all the noise. Impossible to tell which crate's which until it's too late.\"",
+        effect: { addInfo: "Rumor: smuggling ventures run through Saltmarsh at every level, from petty to organized." },
+        choices: [ { text: "Head out", next: "guard_wrapup" } ]
+      },
+      guard_fail: {
+        background: "wicker_goat_main",
+        speaker: { name: "Corley", type: "npc", portrait: "corley" },
+        text: "\"That's guard business,\" she says, suddenly tight-lipped, and turns back to her drink.",
+        choices: [ { text: "Head out", next: "guard_wrapup" } ]
+      },
+      guard_friendly: {
+        background: "wicker_goat_main",
+        speaker: { name: "Corley", type: "npc", portrait: "corley" },
+        text: "She just needed someone to listen, and you're apparently it tonight. By the end she seems lighter for it. \"Thanks. Needed that.\"",
+        effect: { addAlly: "Corley" },
+        choices: [ { text: "Head out", next: "guard_wrapup" } ]
+      },
+      guard_wrapup: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Corley's shift starts early, and she calls it a night not long after. No point sticking around without her.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      goat_dice_intro: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A knot of off-duty guards, out of uniform for once, tossing bones for coin and bragging rights. One of them, lower voiced, mentions pulling \"quiet duty\" outside some private game more than once — always a different well-off household, never the same place twice, guest list a closely kept secret. She won't say more than that.",
+        noReturn: true,
+        effect: { addInfo: "Rumor: a private high-stakes game rotates between the homes of Saltmarsh's wealthiest residents — invite only." },
+        choices: [
+          { text: "Join the game (wager 15 gold)", skillCheck: { skill: "Wis", dc: 11 }, onSuccess: "goat_dice_round1_win", onFail: "goat_dice_round1_lose" },
+          { text: "Watch instead", next: "goat_dice_watch" }
+        ]
+      },
+      goat_dice_round1_win: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You clean up, and they insist it's beginner's luck. It's not, but let them think that. One of them nods toward the bones — game's not over unless you want it to be.",
+        effect: { addGold: 15 },
+        choices: [
+          { text: "Raise the stakes (wager 35 gold)", skillCheck: { skill: "Wis", dc: 13 }, onSuccess: "goat_dice_round2_win", onFail: "goat_dice_round2_lose" },
+          { text: "Cash out and head home", next: "goat_dice_wrapup" }
+        ]
+      },
+      goat_dice_round1_lose: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You lose more than you meant to, but they buy the next round out of guilt.",
+        effect: { addGold: -15 },
+        choices: [
+          { text: "Try again (wager 15 gold)", skillCheck: { skill: "Wis", dc: 11 }, onSuccess: "goat_dice_round1_win", onFail: "goat_dice_round1_lose" },
+          { text: "Cut your losses and head out", next: "goat_dice_wrapup" }
+        ]
+      },
+      goat_dice_round2_win: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The guards aren't laughing anymore — this is real money on the table now, and it's yours. One last round, winner takes a serious pot?",
+        effect: { addGold: 35 },
+        choices: [
+          { text: "Go all in (wager 75 gold)", skillCheck: { skill: "Wis", dc: 15 }, onSuccess: "goat_dice_round3_win", onFail: "goat_dice_round3_lose" },
+          { text: "Cash out and head home", next: "goat_dice_wrapup" }
+        ]
+      },
+      goat_dice_round2_lose: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "That loss draws a wince from the whole table. Guards being guards, at least nobody mentions arresting you for it.",
+        effect: { addGold: -35 },
+        choices: [
+          { text: "Try again (wager 35 gold)", skillCheck: { skill: "Wis", dc: 13 }, onSuccess: "goat_dice_round2_win", onFail: "goat_dice_round2_lose" },
+          { text: "Cut your losses and head out", next: "goat_dice_wrapup" }
+        ]
+      },
+      goat_dice_round3_win: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The final roll is yours, and the whole corner of the Wicker Goat goes up in noise. Even Lankus glances over from behind the bar.",
+        effect: { addGold: 75 },
+        choices: [ { text: "Head out, flush with winnings", next: "goat_dice_wrapup" } ]
+      },
+      goat_dice_round3_lose: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The last roll turns on you, and it's a steep one to swallow. The guards are gracious winners, at least.",
+        effect: { addGold: -75 },
+        choices: [
+          { text: "Try again (wager 75 gold)", skillCheck: { skill: "Wis", dc: 15 }, onSuccess: "goat_dice_round3_win", onFail: "goat_dice_round3_lose" },
+          { text: "Cut your losses and head out", next: "goat_dice_wrapup" }
+        ]
+      },
+      goat_dice_watch: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Friendly banter, no wager. Nobody minds an audience.",
+        choices: [ { text: "Head out", next: "goat_dice_wrapup" } ]
+      },
+      goat_dice_wrapup: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The game breaks up as the night shift changes, and out they go, one by one.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      },
+
+      goat_pickpocket_intro: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A guard's coin purse sits loose at his hip while he's deep in an argument about ore tariffs. Bold, given the company — but bold's an option.",
+        noReturn: true,
+        choices: [
+          { text: "Go for it", skillCheck: { skill: "Dex", dc: 15 }, onSuccess: "goat_pickpocket_success", onFail: "goat_pickpocket_fail" },
+          { text: "Think better of it", next: "goat_pickpocket_wrapup" }
+        ]
+      },
+      goat_pickpocket_success: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "You're gone before he even finishes his sentence.",
+        effect: { addGold: 15 },
+        choices: [ { text: "Head out", next: "goat_pickpocket_wrapup" } ]
+      },
+      goat_pickpocket_fail: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "A room full of off-duty guards is, it turns out, an extremely poor place to get caught with your hand in someone's purse. You don't even make it to the door.",
+        effect: { addConsequence: "Caught pickpocketing at the Wicker Goat" },
+        choices: [ { text: "...", next: "__JAIL__" } ]
+      },
+      goat_pickpocket_wrapup: {
+        background: "wicker_goat_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "Whatever you did or didn't do, it's clearly time to be somewhere else.",
+        choices: [ { text: "Head out for the night", next: "__COMPLETE__" } ]
+      }
+    }
+  },
+
+  market: {
+    name: "The Market Row",
+    start: "start",
+    nodes: {
+      start: {
+        background: "market_main",
+        speaker: { name: "Narrator", type: "narrator" },
+        text: "The market stalls are set up, but nobody's written what happens here yet.",
+        choices: [ { text: "Move on", next: "__COMPLETE__" } ]
+      }
+    }
+  }
+};
+
+/* ============================================================
+   2b. TOP-LEVEL ADVENTURE MENU
+   After picking a character, players land on an adventure menu.
+   Two adventure shapes:
+
+     type: "group"    — a set of locations the player can complete
+                         in ANY order (like a night of pub-hopping).
+                         The group counts as cleared once every
+                         location in its "locations" array is done.
+                         Groups are declared here in code — the DM
+                         Settings "post adventure" box only creates
+                         single-location adventures for now.
+
+     type: "location"  — a single node graph (see LOCATIONS above),
+                          dropping straight into the location screen.
+                          This is what DM Settings posts.
+
+   Either type can have a "requires" field naming another
+   adventure's key — it stays locked on the adventure menu until
+   that one is cleared. Chain as many as you like.
+
+   The DM can post additional "location" adventures from DM
+   Settings and they land here too, alongside anything declared
+   below — not nested inside a group unless you add them to a
+   group's "locations" array here in code.
+   ============================================================ */
+const BUILTIN_ADVENTURES = [
+  { key: "night_on_the_town", name: "Night on the Town", type: "group", locations: ["snapping_line", "empty_net", "wicker_goat"], town: "Saltmarsh" },
+  { key: "market", name: "Visit the Market", type: "location", requires: "night_on_the_town", town: "Saltmarsh" }
+];
+
+let CUSTOM_LOCATIONS = {};
+let CUSTOM_ORDER = [];
+/* Set while the DM is editing a built-in location's node graph from
+   DM Settings (rather than posting a brand new custom adventure). */
+let editingBuiltinKey = null;
+
+/* Reopens a location for every character without touching anything
+   they've already earned there (allies/items/gold/consequences stay).
+   Used when the DM edits a built-in location's content in place. */
+function reopenLocationForEveryone(locKey){
+  Object.keys(progress).forEach(charKey => {
+    delete progress[charKey].completed[locKey];
+    saveProgress(charKey);
+  });
+}
+
+function topAdventures(){
+  return [
+    ...BUILTIN_ADVENTURES,
+    ...CUSTOM_ORDER.map(key => ({
+      key,
+      name: CUSTOM_LOCATIONS[key].name,
+      type: "location",
+      requires: CUSTOM_LOCATIONS[key].requires || null,
+      town: CUSTOM_LOCATIONS[key].town || null
+    }))
+  ];
+}
+/* Which town a location's rewards should be tagged with. Single-location
+   adventures carry their own town; a group's member locations inherit
+   the group's town (a group only ever lives in one town). */
+function getTownForLocation(locKey){
+  const direct = topAdventures().find(a => a.type === "location" && a.key === locKey);
+  if (direct) return direct.town || null;
+  const group = BUILTIN_ADVENTURES.find(a => a.type === "group" && (a.locations || []).includes(locKey));
+  return group ? (group.town || null) : null;
+}
+/* The group (if any) a location belongs to — used when jail auto-completes
+   every other unfinished location in the same group ("the night's over"). */
+function getGroupForLocation(locKey){
+  return BUILTIN_ADVENTURES.find(a => a.type === "group" && (a.locations || []).includes(locKey)) || null;
+}
+/* Every key whose completion is tracked individually via pr.completed[key] —
+   every group's member locations, plus every single-location adventure
+   (built-in or custom). Groups themselves are excluded since their
+   "completion" is derived from their member locations, not stored directly. */
+function allLocationKeys(){
+  const keys = [];
+  BUILTIN_ADVENTURES.forEach(adv => {
+    if (adv.type === "group") keys.push(...(adv.locations || []));
+    else keys.push(adv.key);
+  });
+  keys.push(...CUSTOM_ORDER);
+  return keys;
+}
+/* True once an adventure (group or single location) is fully cleared. */
+function isAdventureCleared(adv){
+  if (!adv) return false;
+  if (adv.type === "group") return (adv.locations || []).every(lk => progress[state.character].completed[lk]);
+  return !!progress[state.character].completed[adv.key];
+}
+/* True once a character has cleared every adventure currently on the
+   menu — every built-in and DM-posted one, with nothing left locked
+   or incomplete. This is the trigger for the results/stats page. There
+   must be at least one adventure to clear, so a character can't "finish
+   the game" before anything exists to finish. */
+function hasCompletedRun(charKey){
+  const advs = topAdventures();
+  if (!advs.length) return false;
+  const pr = progress[charKey];
+  if (!pr) return false;
+  return advs.every(adv => {
+    if (adv.type === "group") return (adv.locations || []).every(lk => pr.completed[lk]);
+    return !!pr.completed[adv.key];
+  });
+}
+/* True if an adventure's prerequisite (if any) hasn't been cleared yet. */
+function adventureLocked(adv){
+  if (!adv.requires) return false;
+  const reqAdv = topAdventures().find(a => a.key === adv.requires);
+  return !isAdventureCleared(reqAdv);
+}
+function getLocation(key){
+  return LOCATIONS[key] || CUSTOM_LOCATIONS[key];
+}
+function slugify(name){
+  let base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!base) base = "adventure";
+  let candidate = base, n = 2;
+  while (getLocation(candidate)) { candidate = `${base}_${n}`; n++; }
+  return candidate;
+}
+/* Flat gold fine for a night in the stocks. Change this one number to
+   retune it everywhere (jail screen text updates automatically). */
+const JAIL_FINE = 50;
+
+/* ============================================================
+   3. ENGINE STATE
+   Local objects (progress, LOCATIONS, CUSTOM_LOCATIONS, PRESETS
+   stats, NOTES) stay the single source of truth for rendering —
+   nothing about how the screens read data changes. When the "db"
+   capability is available (this page is published with persistence
+   turned on), every mutation is ALSO written through to the shared
+   store below, and a set of subscriptions keep local state hydrated
+   from it — on first load (pulling in whatever was saved before)
+   and live, whenever another viewer changes something. Without db
+   (previewing, or a plain downloaded copy of this file), every save
+   call below silently no-ops and the game behaves exactly as it did
+   before persistence existed — pure in-memory, per-tab only.
+   ============================================================ */
+function freshProgress(charKey){
+  // Gold tracks the NET change for the session — it's meant to reconcile
+  // against each player's real character sheet at the table, not model an
+  // absolute wallet, so it's allowed to go negative. It starts wherever
+  // that character's "starting gold" is set (DM Settings → Party Stats),
+  // 0 by default.
+  const start = (PRESETS[charKey] && typeof PRESETS[charKey].startingGold === "number") ? PRESETS[charKey].startingGold : 0;
+  return { completed: {}, jailed: false, jailCount: 0, allies: [], consequences: [], items: [], info: [], gold: start };
+}
+let progress = {};
+Object.keys(PRESETS).forEach(k => progress[k] = freshProgress(k));
+
+/* ---------- PERSISTENCE (db capability) ---------- */
+let DB = null;
+
+async function initPersistence(){
+  try {
+    if (typeof window === "undefined" || !window.claude || typeof window.claude.use !== "function"){
+      DB = null;
+    } else {
+      DB = await window.claude.use("db");
+    }
+  } catch (e){
+    DB = null;
+  }
+  if (!DB) return; // no persistence available — stay fully in-memory, as before
+
+  DB.collection("progress").onSnapshot(snap => {
+    const seen = new Set();
+    (snap.docs || []).forEach(d => {
+      seen.add(d.id);
+      progress[d.id] = normalizeProgress(d.data(), d.id);
+    });
+    // Seed a save doc for any preset character with nothing saved yet,
+    // so it exists for next time and for other viewers.
+    Object.keys(PRESETS).forEach(k => { if (!seen.has(k)) saveProgress(k); });
+    render();
+  }, () => {});
+
+  DB.collection("customAdventures").onSnapshot(snap => {
+    const newLocs = {}, newOrder = [];
+    (snap.docs || []).forEach(d => { newLocs[d.id] = d.data(); newOrder.push(d.id); });
+    CUSTOM_LOCATIONS = newLocs;
+    CUSTOM_ORDER = newOrder;
+    render();
+  }, () => {});
+
+  DB.collection("locationOverrides").onSnapshot(snap => {
+    (snap.docs || []).forEach(d => { LOCATIONS[d.id] = d.data(); });
+    render();
+  }, () => {});
+
+  DB.collection("partyStats").onSnapshot(snap => {
+    (snap.docs || []).forEach(d => {
+      if (!PRESETS[d.id]) return;
+      const { startingGold, ...abilityStats } = d.data() || {};
+      PRESETS[d.id].stats = { ...PRESETS[d.id].stats, ...abilityStats };
+      if (typeof startingGold === "number") PRESETS[d.id].startingGold = startingGold;
+    });
+    render();
+  }, () => {});
+
+  DB.collection("notes").onSnapshot(snap => {
+    NOTES = (snap.docs || []).map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, () => {});
+}
+
+/* Fills in any field a saved progress doc might be missing (e.g. an
+   older save from before a new reward type existed) with fresh defaults. */
+function normalizeProgress(data, charKey){
+  return { ...freshProgress(charKey), ...(data || {}) };
+}
+
+function saveProgress(charKey){
+  if (!DB || !progress[charKey]) return;
+  DB.doc("progress/" + charKey).set(progress[charKey]).catch(() => {});
+}
+function saveCustomAdventure(key){
+  if (!DB || !CUSTOM_LOCATIONS[key]) return;
+  DB.doc("customAdventures/" + key).set(CUSTOM_LOCATIONS[key]).catch(() => {});
+}
+function deleteCustomAdventureRemote(key){
+  if (!DB) return;
+  DB.doc("customAdventures/" + key).delete().catch(() => {});
+}
+function saveLocationOverride(key){
+  if (!DB || !LOCATIONS[key]) return;
+  DB.doc("locationOverrides/" + key).set(LOCATIONS[key]).catch(() => {});
+}
+function savePartyStats(charKey){
+  if (!DB || !PRESETS[charKey]) return;
+  DB.doc("partyStats/" + charKey).set({ ...PRESETS[charKey].stats, startingGold: PRESETS[charKey].startingGold || 0 }).catch(() => {});
+}
+function saveNote(note){
+  if (!DB) return;
+  DB.doc("notes/" + note.id).set({ date: note.date, text: note.text }).catch(() => {});
+}
+function deleteNoteRemote(id){
+  if (!DB) return;
+  DB.doc("notes/" + id).delete().catch(() => {});
+}
+
+let state = {
+  screen: "title",   // title | select | gate | dm | adventureSelect | groupSelect | notesView | location | jail
+  character: null,
+  locationKey: null,
+  node: null
+};
+
+let portraitAnimTimer = null;
+
+function bgTag(key){
+  const src = IMAGES.backgrounds[key];
+  if (src) return `<img src="${src}" alt="">`;
+  return `<div class="placeholder-label">[Background image: ${key}<br>place file at IMAGES.backgrounds.${key}]</div>`;
+}
+
+/* Builds whatever goes INSIDE a portrait box, for a resolved portrait key.
+   Supports three cases:
+     - a single filename string -> plain static image
+     - an array of 2-4 filenames -> loops through them (see wireAnimatedPortraits)
+     - null, with no art yet -> placeholder text, except "brakka" gets a
+       hand-built breathing/nostril-flare demo so you can see the animation
+       feature working before you've drawn anything. */
+function portraitInner(resolvedKey){
+  const src = resolvedKey ? IMAGES.portraits[resolvedKey] : null;
+  if (Array.isArray(src)) {
+    return `<img class="anim-portrait" data-frames='${JSON.stringify(src)}' src="${src[0]}" alt="">`;
+  }
+  if (typeof src === "string") {
+    return `<img src="${src}" alt="">`;
+  }
+  if (!src && resolvedKey === "brakka") {
+    return `<div class="orc-demo"><div class="orc-face"><div class="orc-nostril left"></div><div class="orc-nostril right"></div></div></div>`;
+  }
+  return (resolvedKey || "NPC").slice(0,6).toUpperCase();
+}
+function portraitTag(key, type){
+  const resolvedKey = type === "player" ? PRESETS[state.character].portrait : type === "narrator" ? "dm" : key;
+  return portraitInner(resolvedKey);
+}
+
+/* Small badge that sits on the top rim of a player portrait once they've
+   spent a night in the stocks. Shows a count bubble after the first time. */
+function jailBadge(charKey){
+  const pr = progress[charKey];
+  if (!pr || !pr.jailCount) return "";
+  const countHtml = pr.jailCount > 1 ? `<span class="jcount">${pr.jailCount}</span>` : "";
+  return `<div class="jail-badge" title="Spent ${pr.jailCount} night(s) in the stocks">⛓${countHtml}</div>`;
+}
+
+/* Cycles any animated (array-based) portraits currently on screen.
+   Re-run after every render since the DOM gets replaced each time. */
+function wireAnimatedPortraits(el){
+  if (portraitAnimTimer) clearInterval(portraitAnimTimer);
+  const imgs = el.querySelectorAll("img.anim-portrait");
+  if (!imgs.length) return;
+  const tracked = Array.from(imgs).map(img => ({ img, frames: JSON.parse(img.dataset.frames), idx: 0 }));
+  portraitAnimTimer = setInterval(() => {
+    tracked.forEach(t => {
+      t.idx = (t.idx + 1) % t.frames.length;
+      t.img.src = t.frames[t.idx];
+    });
+  }, 400);
+}
+
+/* ---------- MUSIC ---------- */
+let musicEl = null;
+let currentTrackSrc = null;
+let musicMuted = false;
+
+/* What SHOULD be playing right now, based on the current screen —
+   null means silence. A location scene uses its current node's
+   background to look up ambience; the jail screen uses the stocks
+   background the same way; everything else uses the menu theme. */
+function desiredTrack(){
+  if (state.screen === "location"){
+    const loc = getLocation(state.locationKey);
+    const n = loc && loc.nodes[state.node];
+    return (n && AUDIO.backgrounds[n.background]) || null;
+  }
+  if (state.screen === "jail") return AUDIO.backgrounds.stocks || null;
+  return AUDIO.menu || null;
+}
+
+/* Called at the end of every render(). Only touches the <audio>
+   element when the desired track actually changes, and retries
+   play() on every call while paused — covers the common case where
+   the browser blocks the very first autoplay until a real click
+   happens, without needing a separate "first interaction" listener. */
+function syncMusic(){
+  if (typeof Audio === "undefined") return; // no audio support in this environment
+  const track = desiredTrack();
+  if (!musicEl){
+    musicEl = new Audio();
+    musicEl.loop = true;
+    musicEl.volume = 0.5;
+  }
+  if (!track){
+    if (currentTrackSrc !== null){ musicEl.pause(); currentTrackSrc = null; }
+    return;
+  }
+  const trackChanged = track !== currentTrackSrc;
+  if (trackChanged){
+    currentTrackSrc = track;
+    musicEl.src = track;
+  }
+  musicEl.muted = musicMuted;
+  if (trackChanged || musicEl.paused){
+    musicEl.play().catch(() => { /* still blocked until a user gesture — next click retries */ });
+  }
+}
+
+function setupMusicToggle(){
+  if (typeof document === "undefined" || !document.body || !document.body.appendChild) return;
+  const btn = document.createElement("button");
+  btn.className = "music-toggle";
+  btn.id = "musicToggleBtn";
+  btn.textContent = "\u{1F50A}";
+  btn.title = "Mute/unmute music";
+  btn.addEventListener("click", () => {
+    musicMuted = !musicMuted;
+    btn.textContent = musicMuted ? "\u{1F507}" : "\u{1F50A}";
+    if (musicEl){
+      musicEl.muted = musicMuted;
+      if (!musicMuted && musicEl.paused) musicEl.play().catch(() => {});
+    }
+  });
+  document.body.appendChild(btn);
+}
+
+function render(){
+  const el = document.getElementById("game");
+  if (state.screen === "title") renderTitle(el);
+  else if (state.screen === "select") renderCharacterSelect(el);
+  else if (state.screen === "gate") renderGate(el);
+  else if (state.screen === "dm") renderDMSettings(el);
+  else if (state.screen === "adventureSelect" && state.character && hasCompletedRun(state.character)) renderResults(el);
+  else if (state.screen === "adventureSelect") renderAdventureSelect(el);
+  else if (state.screen === "groupSelect") renderGroupSelect(el);
+  else if (state.screen === "notesView") renderNotesView(el);
+  else if (state.screen === "jail") renderJail(el);
+  else if (state.screen === "location") renderLocation(el);
+  wireAnimatedPortraits(el);
+  syncMusic();
+}
+
+/* ---------- TITLE ---------- */
+function renderTitle(el){
+  el.innerHTML = `
+    <div class="title-screen">
+      <div class="logo pixel">IRON TIDE</div>
+      <div class="tagline">— SHORE LEAVE —</div>
+      <div class="flavor">Downtime in port. Come and go as you please.</div>
+      <button class="beginbtn" id="beginBtn">BEGIN</button>
+      <button class="logbtn" id="logBtn">Read the Ship's Log</button>
+    </div>
+  `;
+  document.getElementById("beginBtn").addEventListener("click", () => {
+    state.screen = "select"; render();
+  });
+  document.getElementById("logBtn").addEventListener("click", () => {
+    state.notesReturnTo = "title";
+    state.screen = "notesView"; render();
+  });
+}
+
+/* ---------- CHARACTER SELECT ---------- */
+function renderCharacterSelect(el){
+  const cards = Object.entries(PRESETS).map(([key, p]) => {
+    const portraitHTML = portraitInner(p.portrait);
+    const topSkill = Object.entries(p.stats).sort((a,b)=>b[1]-a[1])[0][0];
+    return `
+      <div class="char-card" data-key="${key}">
+        <div class="cportrait">${portraitHTML}${jailBadge(key)}</div>
+        <div class="cname">${p.name}</div>
+        <div class="cblurb">${p.blurb}</div>
+        <div class="ctags"><span class="ctag">Strong: ${topSkill}</span></div>
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">CHOOSE YOUR CHARACTER</span>
+    </div>
+    <div class="char-select">
+      <h2>WHO ARE YOU?</h2>
+      <div class="sub">Play your own character only</div>
+      <div class="char-grid">
+        ${cards}
+        <div class="char-card dm-card" id="dmCard">
+          <div class="cportrait">${portraitInner("dm")}</div>
+          <div class="cname">Dungeon Master</div>
+          <div class="cblurb">Not a player character.</div>
+        </div>
+      </div>
+      <button class="backbtn" id="selectBack">Back</button>
+    </div>
+  `;
+
+  el.querySelectorAll(".char-card[data-key]").forEach(card => {
+    card.addEventListener("click", () => {
+      state.character = card.dataset.key;
+      state.screen = "adventureSelect";
+      render();
+    });
+  });
+  document.getElementById("dmCard").addEventListener("click", () => {
+    state.screen = "gate"; render();
+  });
+  document.getElementById("selectBack").addEventListener("click", () => {
+    state.screen = "title"; render();
+  });
+}
+
+/* ---------- DM GATE ---------- */
+function renderGate(el){
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">???</span>
+    </div>
+    <div class="gate-screen">
+      <h2>A VOICE ASKS</h2>
+      <div class="riddle">What does the tide whisper to the moon at low water<span class="secret-dot" id="secretDot">.</span></div>
+      <div class="gate-answers">
+        <button class="choice-btn" data-wrong="1">Nothing, tides don't talk</button>
+        <button class="choice-btn" data-wrong="1">A very old riddle</button>
+        <button class="choice-btn" data-wrong="1">Forty-two</button>
+      </div>
+      <div class="gate-msg" id="gateMsg">&nbsp;</div>
+      <button class="backbtn" id="gateBack">Back</button>
+    </div>
+  `;
+  el.querySelectorAll("[data-wrong]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const card = el.querySelector(".gate-screen");
+      card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+      document.getElementById("gateMsg").textContent = "The gate stays shut.";
+    });
+  });
+  document.getElementById("secretDot").addEventListener("click", () => {
+    state.screen = "dm"; render();
+  });
+  document.getElementById("gateBack").addEventListener("click", () => {
+    state.screen = "select"; render();
+  });
+}
+
+/* ---------- DM SETTINGS ---------- */
+function renderDMSettings(el){
+  const statRows = Object.entries(PRESETS).map(([key, p]) => `
+    <div class="stat-row">
+      <span class="sname pixel" style="font-size:10px;color:var(--gold)">${p.name}</span>
+      ${SKILL_LIST.map(sk => `
+        <label>${sk.slice(0,3)}
+          <input type="number" data-char="${key}" data-skill="${sk}" value="${p.stats[sk] || 0}">
+        </label>
+      `).join("")}
+      <label>Gold
+        <input type="number" data-startgold="${key}" value="${p.startingGold || 0}">
+      </label>
+    </div>
+  `).join("");
+
+  const progressCards = Object.entries(PRESETS).map(([key, p]) => {
+    const pr = progress[key];
+    const completedNames = allLocationKeys().filter(lk => pr.completed[lk]).map(lk => getLocation(lk).name);
+    return `
+      <div class="progress-card">
+        <div class="pname">${p.name}</div>
+        <div class="pline">Completed: ${completedNames.length ? completedNames.join(", ") : "none yet"}</div>
+        <div class="pline">Jailed: ${pr.jailed ? "yes" : "no"} (${pr.jailCount || 0} time${pr.jailCount === 1 ? "" : "s"} total)</div>
+        <div class="pline">Allies: ${pr.allies.length ? pr.allies.map(a => `${a.name}${a.town ? ` [${a.town}]` : ""}`).join(", ") : "none"}</div>
+        <div class="pline">Items: ${pr.items.length ? pr.items.map(i => `${i.name}${i.town ? ` [${i.town}]` : ""}`).join(", ") : "none"}</div>
+        <div class="pline">Info: ${pr.info.length ? pr.info.map(i => `${i.name}${i.town ? ` [${i.town}]` : ""}`).join(", ") : "none"}</div>
+        <div class="pline">Gold: ${pr.gold}</div>
+        <div class="pline">Consequences: ${pr.consequences.length ? pr.consequences.join(", ") : "none"}</div>
+        <button class="resetbtn" data-reset="${key}">Reset progress</button>
+      </div>
+    `;
+  }).join("");
+
+  const builtInAdvHtml = BUILTIN_ADVENTURES.map(adv => {
+    if (adv.type === "group"){
+      const memberHtml = (adv.locations || []).map(lk => `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <span>— ${getLocation(lk).name}</span>
+          <button class="delbtn" style="color:var(--teal)" data-editbuiltin="${lk}">edit</button>
+        </div>
+      `).join("");
+      return `
+        <div class="adv-item">
+          <div class="aname">${adv.name}${adv.town ? ` <span style="color:var(--teal); font-size:11px;">[${adv.town}]</span>` : ""}</div>
+          <div class="abuilt">Built-in — group of ${(adv.locations || []).length} location(s)</div>
+          ${memberHtml}
+        </div>
+      `;
+    }
+    const reqAdv = adv.requires ? topAdventures().find(a => a.key === adv.requires) : null;
+    return `
+      <div class="adv-item">
+        <button class="delbtn" style="color:var(--teal)" data-editbuiltin="${adv.key}">edit</button>
+        <div class="aname">${adv.name}${adv.town ? ` <span style="color:var(--teal); font-size:11px;">[${adv.town}]</span>` : ""}</div>
+        <div class="abuilt">Built-in${reqAdv ? ` — requires "${reqAdv.name}" cleared first` : " — always available"}</div>
+      </div>
+    `;
+  }).join("");
+  const customAdvHtml = CUSTOM_ORDER.map(key => {
+    const loc = CUSTOM_LOCATIONS[key];
+    const reqAdv = loc.requires ? topAdventures().find(a => a.key === loc.requires) : null;
+    return `
+      <div class="adv-item">
+        <button class="delbtn" data-deladv="${key}">remove</button>
+        <div class="aname">${loc.name}${loc.town ? ` <span style="color:var(--teal); font-size:11px;">[${loc.town}]</span>` : ""}</div>
+        <div class="abuilt">Custom · key: ${key} · ${Object.keys(loc.nodes).length} node(s)${reqAdv ? ` · requires "${reqAdv.name}" cleared first` : ""}</div>
+      </div>
+    `;
+  }).join("") || `<div class="pline" style="color:var(--dim)">No custom adventures posted yet.</div>`;
+
+  const notesList = [...NOTES].sort((a,b)=>b.date.localeCompare(a.date)).map((n,i) => `
+    <div class="note-item">
+      <button class="delbtn" data-delnote="${n.id}">remove</button>
+      <div class="ndate">${n.date}</div>
+      <div class="ntext">${n.text}</div>
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">DM SETTINGS</span>
+    </div>
+    <div class="dm-screen">
+      <h2>DM SETTINGS</h2>
+
+      <div class="dm-section">
+        <h3>PARTY STATS</h3>
+        ${statRows}
+      </div>
+
+      <div class="dm-section">
+        <h3>PROGRESS &amp; UNLOCKS</h3>
+        ${progressCards}
+      </div>
+
+      <div class="dm-section">
+        <h3>ADVENTURES (players see these on the adventure menu)</h3>
+        ${builtInAdvHtml}
+        ${customAdvHtml}
+        <div class="adv-form">
+          ${editingBuiltinKey ? `<div class="adv-hint" style="color:var(--teal)">Editing built-in location "${getLocation(editingBuiltinKey).name}" (key: ${editingBuiltinKey}). Saving reopens it for every character — their allies, items, gold, and consequences from before stay untouched.</div>` : ""}
+          <input type="text" id="advName" placeholder="Adventure name, e.g. The Rusty Anchor" value="${editingBuiltinKey ? getLocation(editingBuiltinKey).name : ""}">
+          ${editingBuiltinKey ? "" : `
+          <label class="adv-label" for="advTown">Town (tags this adventure and any allies/items/info it grants):</label>
+          <input type="text" id="advTown" placeholder="e.g. Saltmarsh" value="Saltmarsh">
+          <label class="adv-label" for="advRequires">Requires (cleared before this unlocks):</label>
+          <select id="advRequires">
+            <option value="">No prerequisite — always available</option>
+            ${topAdventures().map(a => `<option value="${a.key}">${a.name}</option>`).join("")}
+          </select>
+          `}
+          <textarea id="advJson" placeholder='{
+  "start": "start",
+  "nodes": {
+    "start": {
+      "background": "market_main",
+      "speaker": { "name": "Narrator", "type": "narrator" },
+      "text": "Describe the scene...",
+      "choices": [
+        { "text": "Do a thing", "next": "__COMPLETE__" }
+      ]
+    }
+  }
+}'>${editingBuiltinKey ? JSON.stringify({ start: getLocation(editingBuiltinKey).start, nodes: getLocation(editingBuiltinKey).nodes }, null, 2) : ""}</textarea>
+          <div class="adv-hint">Paste a node graph in the same shape as "Visit the Market" (start node id, a nodes object, choices that point to other node ids or to "__COMPLETE__" / "__JAIL__", optional skillCheck / onSuccess / onFail / effect). A skillCheck's "skill" should be one of Str, Dex, Con, Int, Wis, Cha. Add <code>"noReturn": true</code> to any node to make it a point of no return — the Back button disappears from that node onward. A choice can include <code>"requires": { "ally": "Name" }</code> (or "item" / "info" / "consequence" / "goldAtLeast") so it only appears once the character qualifies — always leave at least one choice per node with no requirement, or a player who doesn't qualify for anything gets stuck. An effect can include <code>addAlly</code>, <code>addItem</code> / <code>removeItem</code>, <code>addInfo</code>, <code>addConsequence</code>, and <code>addGold</code> (negative to spend). Allies, items, and info are automatically tagged with whichever town you set above, so requires checks just match by name — no need to mention the town in the JSON itself. ${editingBuiltinKey ? "" : "Use the dropdown above to chain this adventure behind another one."} Posted adventures show up as their own entry on the adventure menu. Backgrounds and portraits reuse whatever keys are already defined in IMAGES, or leave them out for a placeholder — reusing an existing background key also carries over its looping ambience from AUDIO, if it has one.</div>
+          <div class="adv-error" id="advError">&nbsp;</div>
+          <div style="display:flex; gap:8px;">
+            <button id="addAdvBtn">${editingBuiltinKey ? "Save changes" : "Post adventure"}</button>
+            ${editingBuiltinKey ? `<button id="cancelEditBtn" style="background:#332b52; color:var(--text); border:2px solid var(--panel-edge);">Cancel</button>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-section">
+        <h3>SHIP'S LOG (players see these read-only)</h3>
+        <div class="note-form">
+          <input type="date" id="noteDate">
+          <textarea id="noteText" placeholder="What happened this session..."></textarea>
+          <button id="addNoteBtn">Add note</button>
+        </div>
+        ${notesList}
+      </div>
+
+      <button class="backbtn" id="dmBack">Back to title</button>
+    </div>
+  `;
+
+  el.querySelectorAll("input[data-char]").forEach(inp => {
+    inp.addEventListener("change", () => {
+      PRESETS[inp.dataset.char].stats[inp.dataset.skill] = parseInt(inp.value, 10) || 0;
+      savePartyStats(inp.dataset.char);
+    });
+  });
+  el.querySelectorAll("input[data-startgold]").forEach(inp => {
+    inp.addEventListener("change", () => {
+      PRESETS[inp.dataset.startgold].startingGold = parseInt(inp.value, 10) || 0;
+      savePartyStats(inp.dataset.startgold);
+    });
+  });
+  el.querySelectorAll("[data-reset]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      progress[btn.dataset.reset] = freshProgress(btn.dataset.reset);
+      saveProgress(btn.dataset.reset);
+      renderDMSettings(el);
+    });
+  });
+  el.querySelectorAll("[data-deladv]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.deladv;
+      delete CUSTOM_LOCATIONS[key];
+      CUSTOM_ORDER = CUSTOM_ORDER.filter(k => k !== key);
+      deleteCustomAdventureRemote(key);
+      renderDMSettings(el);
+    });
+  });
+  el.querySelectorAll("[data-editbuiltin]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      editingBuiltinKey = btn.dataset.editbuiltin;
+      renderDMSettings(el);
+    });
+  });
+  const cancelEditBtn = document.getElementById("cancelEditBtn");
+  if (cancelEditBtn){
+    cancelEditBtn.addEventListener("click", () => {
+      editingBuiltinKey = null;
+      renderDMSettings(el);
+    });
+  }
+  document.getElementById("addAdvBtn").addEventListener("click", () => {
+    const errorEl = document.getElementById("advError");
+    const name = document.getElementById("advName").value.trim();
+    const raw = document.getElementById("advJson").value.trim();
+    if (!name){ errorEl.textContent = "Give the adventure a name first."; return; }
+    if (!raw){ errorEl.textContent = "Paste a node graph (start + nodes) first."; return; }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e){
+      errorEl.textContent = "That's not valid JSON — check for a stray comma or missing quote.";
+      return;
+    }
+    if (!parsed.start || !parsed.nodes || typeof parsed.nodes !== "object"){
+      errorEl.textContent = 'Needs a "start" node id and a "nodes" object.';
+      return;
+    }
+    if (!parsed.nodes[parsed.start]){
+      errorEl.textContent = `The start node "${parsed.start}" isn't in the nodes object.`;
+      return;
+    }
+    if (editingBuiltinKey){
+      LOCATIONS[editingBuiltinKey] = { name, start: parsed.start, nodes: parsed.nodes };
+      saveLocationOverride(editingBuiltinKey);
+      reopenLocationForEveryone(editingBuiltinKey);
+      editingBuiltinKey = null;
+      renderDMSettings(el);
+      return;
+    }
+    const key = slugify(name);
+    const requires = document.getElementById("advRequires").value || null;
+    const town = document.getElementById("advTown").value.trim() || null;
+    CUSTOM_LOCATIONS[key] = { name, start: parsed.start, nodes: parsed.nodes, requires, town };
+    CUSTOM_ORDER.push(key);
+    saveCustomAdventure(key);
+    renderDMSettings(el);
+  });
+  el.querySelectorAll("[data-delnote]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.delnote;
+      const idx = NOTES.findIndex(n => n.id === id);
+      if (idx > -1) NOTES.splice(idx, 1);
+      deleteNoteRemote(id);
+      renderDMSettings(el);
+    });
+  });
+  document.getElementById("addNoteBtn").addEventListener("click", () => {
+    const date = document.getElementById("noteDate").value;
+    const text = document.getElementById("noteText").value.trim();
+    if (!date || !text) return;
+    const note = { id: String(Date.now()) + Math.random().toString(36).slice(2, 7), date, text };
+    NOTES.push(note);
+    saveNote(note);
+    renderDMSettings(el);
+  });
+  document.getElementById("dmBack").addEventListener("click", () => {
+    state.screen = "title"; render();
+  });
+}
+
+/* ---------- ADVENTURE SELECT (top-level menu) ---------- */
+function renderAdventureSelect(el){
+  const pr = progress[state.character];
+  if (pr.jailed){ renderJail(el); return; }
+
+  const cards = topAdventures().map(adv => {
+    const locked = adventureLocked(adv);
+    const townLabel = adv.town ? `<span style="color:var(--dim); font-size:14px;"> — ${adv.town}</span>` : "";
+    if (adv.type === "group"){
+      const total = (adv.locations || []).length;
+      const done = (adv.locations || []).filter(lk => pr.completed[lk]).length;
+      const tag = locked
+        ? '<span class="status" style="color:var(--danger)">LOCKED</span>'
+        : `<span class="status" style="color:var(--dim)">${done}/${total}</span>`;
+      return `<button class="choice-btn" data-advkey="${adv.key}" data-type="group" ${locked ? "disabled" : ""}>
+        ${adv.name}${townLabel}${tag}
+      </button>`;
+    }
+    const done = pr.completed[adv.key];
+    const tag = done
+      ? '<span class="status">COMPLETED</span>'
+      : locked ? '<span class="status" style="color:var(--danger)">LOCKED</span>' : "";
+    return `<button class="choice-btn" data-advkey="${adv.key}" data-type="location" ${(done || locked) ? "disabled" : ""}>
+      ${adv.name}${townLabel}${tag}
+    </button>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">${PRESETS[state.character].name.toUpperCase()} · ALLIES ${pr.allies.length} · GOLD ${pr.gold}</span>
+    </div>
+    <div class="dialogue">
+      <div class="portrait player">${portraitTag(null, "player")}${jailBadge(state.character)}</div>
+      <div class="speech">
+        <div class="speaker-name player">${PRESETS[state.character].name}</div>
+        <div class="speech-text">Where to tonight?</div>
+      </div>
+    </div>
+    <div class="choices">
+      ${cards}
+    </div>
+    <div style="padding:0 14px 16px;">
+      <button class="backbtn" id="advSelectBack">Back</button>
+    </div>
+  `;
+
+  el.querySelectorAll("[data-advkey]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.advkey;
+      if (btn.dataset.type === "group"){
+        state.groupKey = key;
+        state.screen = "groupSelect";
+        render();
+      } else {
+        enterLocation(key, "adventureSelect");
+      }
+    });
+  });
+  document.getElementById("advSelectBack").addEventListener("click", () => {
+    state.character = null; state.screen = "select"; render();
+  });
+}
+
+/* ---------- RESULTS (shown automatically once every adventure is cleared) ---------- */
+function renderResults(el){
+  const pr = progress[state.character];
+  const charName = PRESETS[state.character].name;
+  const completedNames = allLocationKeys().filter(lk => pr.completed[lk]).map(lk => getLocation(lk).name);
+  const tagged = (list) => list.length ? list.map(x => `${x.name}${x.town ? ` [${x.town}]` : ""}`).join(", ") : "None";
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">${charName.toUpperCase()} · YOUR STORY</span>
+    </div>
+    <div class="dialogue">
+      <div class="portrait player">${portraitTag(null, "player")}${jailBadge(state.character)}</div>
+      <div class="speech">
+        <div class="speaker-name player">${charName}</div>
+        <div class="speech-text">There's nothing left undone. Here's how it went.</div>
+      </div>
+    </div>
+    <div class="dm-screen">
+      <h2>${charName.toUpperCase()}'S STORY</h2>
+
+      <div class="dm-section">
+        <h3>ADVENTURES COMPLETED</h3>
+        <div class="progress-card"><div class="pline">${completedNames.length ? completedNames.join(", ") : "None"}</div></div>
+      </div>
+
+      <div class="dm-section">
+        <h3>ALLIES MADE</h3>
+        <div class="progress-card"><div class="pline">${tagged(pr.allies)}</div></div>
+      </div>
+
+      <div class="dm-section">
+        <h3>ITEMS COLLECTED</h3>
+        <div class="progress-card"><div class="pline">${tagged(pr.items)}</div></div>
+      </div>
+
+      <div class="dm-section">
+        <h3>LEADS UNCOVERED</h3>
+        <div class="progress-card"><div class="pline">${tagged(pr.info)}</div></div>
+      </div>
+
+      <div class="dm-section">
+        <h3>CONSEQUENCES</h3>
+        <div class="progress-card"><div class="pline">${pr.consequences.length ? pr.consequences.join(", ") : "None"}</div></div>
+      </div>
+
+      <div class="dm-section">
+        <h3>FINAL TALLY</h3>
+        <div class="progress-card">
+          <div class="pline">Gold: ${pr.gold}</div>
+          <div class="pline">Nights in the stocks: ${pr.jailCount || 0}</div>
+        </div>
+      </div>
+
+      <button class="backbtn" id="resultsBack">Switch Character</button>
+    </div>
+  `;
+
+  document.getElementById("resultsBack").addEventListener("click", () => {
+    state.character = null;
+    state.screen = "select";
+    render();
+  });
+}
+
+/* ---------- GROUP SUB-MENU (e.g. Night on the Town) ---------- */
+function renderGroupSelect(el){
+  const pr = progress[state.character];
+  if (pr.jailed){ renderJail(el); return; }
+  const adv = topAdventures().find(a => a.key === state.groupKey);
+
+  const cards = (adv.locations || []).map(key => {
+    const loc = getLocation(key);
+    const done = pr.completed[key];
+    return `<button class="choice-btn" data-loc="${key}" ${done ? "disabled" : ""}>
+      ${loc.name}
+      ${done ? '<span class="status">COMPLETED</span>' : ""}
+    </button>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">${adv.name.toUpperCase()}</span>
+      <span class="tracker pixel">${PRESETS[state.character].name.toUpperCase()} · ALLIES ${pr.allies.length} · GOLD ${pr.gold}</span>
+    </div>
+    <div class="dialogue">
+      <div class="portrait player">${portraitTag(null, "player")}${jailBadge(state.character)}</div>
+      <div class="speech">
+        <div class="speaker-name player">${PRESETS[state.character].name}</div>
+        <div class="speech-text">A few places to try tonight. Where to?</div>
+      </div>
+    </div>
+    <div class="choices">
+      ${cards}
+    </div>
+    <div style="padding:0 14px 16px;">
+      <button class="backbtn" id="groupBack">Back</button>
+    </div>
+  `;
+
+  el.querySelectorAll("[data-loc]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      enterLocation(btn.dataset.loc, "groupSelect");
+    });
+  });
+  document.getElementById("groupBack").addEventListener("click", () => {
+    state.screen = "adventureSelect"; render();
+  });
+}
+
+/* ---------- JAIL ---------- */
+function renderJail(el){
+  const pr = progress[state.character];
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">${PRESETS[state.character].name.toUpperCase()} · IN THE STOCKS</span>
+    </div>
+    <div class="scene-art">${bgTag("stocks")}</div>
+    <div class="dialogue">
+      <div class="portrait player">${portraitTag(null, "player")}${jailBadge(state.character)}</div>
+      <div class="speech">
+        <div class="speaker-name player">${PRESETS[state.character].name}</div>
+        <div class="speech-text">Locked in the stocks. Pay to walk free tonight, or ride it out and call it a night.</div>
+      </div>
+    </div>
+    <div class="choices">
+      <button class="choice-btn" id="payBtn">Pay the ${JAIL_FINE} gold fine and go (free to try another pub)</button>
+      <button class="choice-btn" id="stayBtn">Spend the night (the rest of tonight's pubs are done for)</button>
+    </div>
+  `;
+  document.getElementById("payBtn").addEventListener("click", () => {
+    pr.gold -= JAIL_FINE;
+    pr.jailed = false;
+    saveProgress(state.character);
+    state.screen = "adventureSelect"; render();
+  });
+  document.getElementById("stayBtn").addEventListener("click", () => {
+    const group = getGroupForLocation(state.lastJailedLocation);
+    if (group){
+      (group.locations || []).forEach(lk => { pr.completed[lk] = true; });
+    }
+    pr.jailed = false;
+    saveProgress(state.character);
+    state.screen = "adventureSelect"; render();
+  });
+}
+
+/* ---------- CAMPAIGN NOTES (read-only) ---------- */
+function renderNotesView(el){
+  const notesList = [...NOTES].sort((a,b)=>b.date.localeCompare(a.date)).map(n => `
+    <div class="note-item">
+      <div class="ndate">${n.date}</div>
+      <div class="ntext">${n.text}</div>
+    </div>
+  `).join("") || `<div class="pline" style="color:var(--dim)">No notes yet.</div>`;
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">IRON TIDE</span>
+      <span class="tracker pixel">SHIP'S LOG</span>
+    </div>
+    <div class="dm-screen">
+      <h2>SHIP'S LOG</h2>
+      ${notesList}
+      <button class="backbtn" id="notesBack">Back</button>
+    </div>
+  `;
+  document.getElementById("notesBack").addEventListener("click", () => {
+    state.screen = state.notesReturnTo || "adventureSelect"; render();
+  });
+}
+
+/* ---------- LOCATION (adventure scene) ---------- */
+function meetsChoiceRequirement(choice, pr){
+  if (!choice.requires) return true;
+  const reqs = Array.isArray(choice.requires) ? choice.requires : [choice.requires];
+  return reqs.every(req => {
+    if (req.ally) return pr.allies.some(a => a.name === req.ally);
+    if (req.consequence) return pr.consequences.includes(req.consequence);
+    if (req.item) return pr.items.some(i => i.name === req.item);
+    if (req.info) return pr.info.some(i => i.name === req.info);
+    if (req.goldAtLeast != null) return pr.gold >= req.goldAtLeast;
+    return true;
+  });
+}
+
+function renderLocation(el){
+  const pr = progress[state.character];
+  const loc = getLocation(state.locationKey);
+  const n = loc.nodes[state.node];
+  const speakerType = n.speaker.type;
+  const portraitHtml = `<div class="portrait ${speakerType}">${portraitTag(n.speaker.portrait, speakerType)}</div>`;
+
+  const choicesHtml = n.choices
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => meetsChoiceRequirement(c, pr) && !(c.branchKey && state.visitedBranches.includes(c.branchKey)))
+    .map(({ c, i }) => {
+      const tag = c.skillCheck ? `<span class="tag">${c.skillCheck.skill} DC ${c.skillCheck.dc}</span>` : "";
+      const unlockedClass = c.requires ? " choice-unlocked" : "";
+      return `<button class="choice-btn${unlockedClass}" data-idx="${i}">${c.text}${tag}</button>`;
+    }).join("");
+
+  const backHtml = state.noReturnPassed
+    ? `<div class="pline" style="padding:0 14px 16px;color:var(--dim);text-align:center;">There's no turning back now.</div>`
+    : `<div style="padding:0 14px 16px;"><button class="backbtn" id="locBack">Back</button></div>`;
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="title pixel">${loc.name.toUpperCase()}</span>
+      <span class="tracker pixel">${PRESETS[state.character].name.toUpperCase()}</span>
+    </div>
+    <div class="scene-art">${bgTag(n.background)}</div>
+    <div class="dialogue">
+      ${portraitHtml}
+      <div class="speech">
+        <div class="speaker-name ${speakerType}">${n.speaker.name}</div>
+        <div class="speech-text">${n.text}</div>
+      </div>
+    </div>
+    <div class="choices">${choicesHtml}</div>
+    ${backHtml}
+  `;
+
+  el.querySelectorAll(".choice-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const choice = n.choices[+btn.dataset.idx];
+      if (choice.skillCheck) openRoll(choice);
+      else goToNode(choice.next);
+    });
+  });
+  const locBackBtn = document.getElementById("locBack");
+  if (locBackBtn) {
+    locBackBtn.addEventListener("click", () => {
+      // Steps away mid-scene without marking the adventure complete —
+      // unlike the in-story choices, this does NOT touch pr.completed,
+      // so the player can come back and try it again later.
+      state.locationKey = null; state.node = null;
+      state.screen = state.locationReturnTo || "adventureSelect";
+      render();
+    });
+  }
+}
+
+/* Enters a location fresh, resetting (or immediately tripping, if the
+   start node itself is marked noReturn) the point-of-no-return flag. */
+function enterLocation(key, returnTo){
+  const loc = getLocation(key);
+  state.locationKey = key;
+  state.node = loc.start;
+  state.locationReturnTo = returnTo;
+  state.noReturnPassed = !!(loc.nodes[loc.start] && loc.nodes[loc.start].noReturn);
+  // Branches completed THIS visit, so a chainable branch's wrapup can hide
+  // itself from the start menu without permanently locking the character
+  // out of it on a future visit — resets fresh every time the location opens.
+  state.visitedBranches = [];
+  state.screen = "location";
+  render();
+}
+
+function goToNode(nodeId){
+  const loc = getLocation(state.locationKey);
+  const prevNode = loc.nodes[state.node];
+  if (prevNode && prevNode.effect) applyEffect(prevNode.effect);
+  // A wrapup node can carry "markVisited": "someKey" to record that this
+  // branch is done for the rest of the visit — paired with a matching
+  // "branchKey" on the start node's choice for that branch (see
+  // meetsChoiceRequirement's sibling filter in renderLocation).
+  if (prevNode && prevNode.markVisited && !state.visitedBranches.includes(prevNode.markVisited)){
+    state.visitedBranches.push(prevNode.markVisited);
+  }
+
+  if (nodeId === "__COMPLETE__"){
+    progress[state.character].completed[state.locationKey] = true;
+    saveProgress(state.character);
+    state.locationKey = null; state.node = null;
+    state.screen = state.locationReturnTo || "adventureSelect";
+    render();
+    return;
+  }
+  if (nodeId === "__JAIL__"){
+    progress[state.character].completed[state.locationKey] = true;
+    progress[state.character].jailed = true;
+    progress[state.character].jailCount = (progress[state.character].jailCount || 0) + 1;
+    progress[state.character].consequences.push("Night in the stocks");
+    saveProgress(state.character);
+    state.lastJailedLocation = state.locationKey;
+    state.locationKey = null; state.node = null;
+    state.screen = "jail"; render();
+    return;
+  }
+  state.node = nodeId;
+  if (loc.nodes[nodeId] && loc.nodes[nodeId].noReturn) state.noReturnPassed = true;
+  // Looping back to the start menu (a chainable branch finishing up) is
+  // back to a neutral, uncommitted state — free to leave again from here,
+  // same as first walking in.
+  if (nodeId === "start") state.noReturnPassed = false;
+  render();
+}
+
+function applyEffect(effect){
+  const pr = progress[state.character];
+  const town = getTownForLocation(state.locationKey);
+  if (effect.addAlly && !pr.allies.some(a => a.name === effect.addAlly)) pr.allies.push({ name: effect.addAlly, town });
+  if (effect.addConsequence) pr.consequences.push(effect.addConsequence);
+  if (effect.addItem && !pr.items.some(i => i.name === effect.addItem)) pr.items.push({ name: effect.addItem, town });
+  if (effect.removeItem) pr.items = pr.items.filter(i => i.name !== effect.removeItem);
+  if (effect.addInfo && !pr.info.some(i => i.name === effect.addInfo)) pr.info.push({ name: effect.addInfo, town });
+  if (typeof effect.addGold === "number") pr.gold = pr.gold + effect.addGold;
+  saveProgress(state.character);
+}
+
+/* ---------- DICE ROLL OVERLAY ---------- */
+function openRoll(choice){
+  const { skill, dc } = choice.skillCheck;
+  const autoMod = (PRESETS[state.character].stats[skill]) || 0;
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="roll-card">
+      <h3>${PRESETS[state.character].name.toUpperCase()} — ${skill.toUpperCase()} CHECK — DC ${dc}</h3>
+      <div class="mod-row">Modifier <input id="modInput" type="number" value="${autoMod}"></div>
+      <div class="die" id="dieFace">d20</div>
+      <div class="roll-math" id="mathLine">&nbsp;</div>
+      <button class="roll-btn" id="rollBtn">ROLL</button>
+      <div class="roll-result" id="resultLine"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById("rollBtn").addEventListener("click", () => {
+    const btn = document.getElementById("rollBtn");
+    btn.disabled = true;
+    const modifier = parseInt(document.getElementById("modInput").value, 10) || 0;
+    const dieFace = document.getElementById("dieFace");
+    let ticks = 0;
+    const spin = setInterval(() => {
+      dieFace.textContent = 1 + Math.floor(Math.random() * 20);
+      ticks++;
+      if (ticks > 12) {
+        clearInterval(spin);
+        const roll = 1 + Math.floor(Math.random() * 20);
+        dieFace.textContent = roll;
+        const total = roll + modifier;
+        document.getElementById("mathLine").textContent = `${roll} + ${modifier} = ${total}  (need ${dc})`;
+        const result = document.getElementById("resultLine");
+        const success = total >= dc;
+        result.textContent = success ? "SUCCESS" : "FAILURE";
+        result.className = "roll-result " + (success ? "success" : "fail");
+        setTimeout(() => {
+          document.body.removeChild(overlay);
+          goToNode(success ? choice.onSuccess : choice.onFail);
+        }, 900);
+      }
+    }, 60);
+  });
+}
+
+setupMusicToggle();
+render();
+initPersistence();
+
+/* ============================================================
+   NOTE ON PERSISTENCE
+   Progress, party stats, DM-posted adventures, edited built-in
+   locations, and the Ship's Log all persist through the "db"
+   capability when this page is published with it declared — shared
+   across every viewer, on any device, surviving closed tabs and
+   reloads. See initPersistence() and the various save-/delete-
+   prefixed functions near the top of the script for how. Previewing this file without
+   that capability granted (or opening a plain downloaded copy of
+   it) falls back to exactly the old behavior: pure in-memory,
+   per-tab only, resetting on close — every save call silently
+   no-ops rather than erroring.
+   ============================================================ */
+</script>
+</body>
+</html>
